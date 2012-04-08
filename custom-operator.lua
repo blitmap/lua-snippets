@@ -1,26 +1,21 @@
 #!/usr/bin/env lua
 
-local infix = nil
+local infix =
+	function (f)
+		local infix_object = newproxy(true)
 
-do
-	local infix_object = {}
+		getmetatable(infix_object).__sub =
+			function (lhs)
+				local mt = { lhs, __sub = function (self, b) return f(self[1 --[[lhs]]], b) end }
 
-	infix =
-		function (f)
-			local mt = { __sub = function (self, b) return f(self[1], b) end }
-			return
-				setmetatable(
-					infix_object,
-					{
-						__sub =
-							function (a)
-								return setmetatable({ a }, mt)
-							end
-					}
-				)
-		end
-end
+				return setmetatable(mt, mt)
+			end
 
-local eq = infix(function (a, b) return a == b end)
+		return infix_object
+	end
 
-print(1 -eq- 1)
+local eq   = infix(function (a, b) return a == b end)
+local comp = infix(function (a, b) return a == b and 0 or a < b and -1 or 1 end)
+
+print(1  -eq-  1)
+print(1 -comp- 0)
