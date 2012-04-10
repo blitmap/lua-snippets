@@ -10,25 +10,17 @@ type =
 	function (what)
 		local tmp = getmetatable(what)
 
-		-- Nothing special here,
+		-- what has no __type metafield,
 		-- behave like the original type()
 		if not tmp or not tmp.__type then
 			return orig_type(what)
 		end
 
-		local __type_metafield = tmp.__type
+		-- If __type is callable, return that result (or return its member value).
+		-- Note: __type maybe a function or an object with a __call metamethod
+		local status, ret = pcall(function () return tmp.__type(what) end)
 
-		-- If a __type (metafield?) is defined,
-		-- call it if it is callable, or return
-		-- its member value otherwise.
-		if
-			orig_type(__type_metafield) == 'function' or
-			getmetatable(__type_metafield).__call
-		then
-			return __type_metafield(what)
-		else
-			return __type_metafield
-		end
+		return status and ret or tmp.__type
 	end
 
 -- Alias to that.
