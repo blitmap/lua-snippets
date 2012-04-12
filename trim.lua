@@ -86,30 +86,30 @@ local tests =
 		{
 			func = trim.left,
 			func_name = 'trim.left',
-			{ str = '',             expected = '',           needs_trim = false },
-			{ str = '  ',           expected = '',           needs_trim = true  },
-			{ str =   'ltrim me',   expected = 'ltrim me',   needs_trim = false },
-			{ str = '  ltrim me',   expected = 'ltrim me',   needs_trim = true  },
-			{ str =   'ltrim me  ', expected = 'ltrim me  ', needs_trim = false },
-			{ str = '  ltrim me  ', expected = 'ltrim me  ', needs_trim = true  }
+			{ str = '',             expected = ''           },
+			{ str = '  ',           expected = ''           },
+			{ str =   'ltrim me',   expected = 'ltrim me'   },
+			{ str = '  ltrim me',   expected = 'ltrim me'   },
+			{ str =   'ltrim me  ', expected = 'ltrim me  ' },
+			{ str = '  ltrim me  ', expected = 'ltrim me  ' },
 		},
 		{
 			func = trim.right,
 			func_name = 'trim.right',
-			{ str = '',             expected = '',           needs_trim = false },
-			{ str = '  ',           expected = '',           needs_trim = true  },
-			{ str =   'rtrim me',   expected =   'rtrim me', needs_trim = false },
-			{ str = '  rtrim me',   expected = '  rtrim me', needs_trim = false },
-			{ str =   'rtrim me  ', expected =   'rtrim me', needs_trim = true  },
-			{ str = '  rtrim me  ', expected = '  rtrim me', needs_trim = true  }
+			{ str = '',             expected = ''           },
+			{ str = '  ',           expected = ''           },
+			{ str =   'rtrim me',   expected =   'rtrim me' },
+			{ str = '  rtrim me',   expected = '  rtrim me' },
+			{ str =   'rtrim me  ', expected =   'rtrim me' },
+			{ str = '  rtrim me  ', expected = '  rtrim me' },
 		},
 		{
 			func = trim,
 			func_name = 'trim',
-			{ str = '',             expected = '',           needs_trim = false },
-			{ str = '  ',           expected = '',           needs_trim = true  },
-			{ str =   'trim me',    expected = 'trim me',    needs_trim = false },
-			{ str = '  trim me  ',  expected = 'trim me',    needs_trim = true  }
+			{ str = '',             expected = ''           },
+			{ str = '  ',           expected = ''           },
+			{ str =   'trim me',    expected = 'trim me'    },
+			{ str = '  trim me  ',  expected = 'trim me'    },
 		}
 	}
 
@@ -124,9 +124,9 @@ for x, testcase in ipairs(tests) do
 		println(
 			'\tTest #%d'                                % y,
 			'',
-			"\t==    Expecting: %s -> %s (%schange)"    % { squote(test.str), squote(test.expected), test.needs_trim and 'needs to ' or 'should not ' },
+			"\t==    Expecting: %s -> %s (%schange)"    % { squote(test.str), squote(test.expected), test.str == test.expected and 'should not ' or 'needs to ' },
 			"\t==  Test Result: %s -> %s"               % { squote(test.str), squote(res) },
-			"\t== Trimmed Form: %s! (string %schanged)" % { res == test.expected and 'Correct' or 'Incorrect', modified and '' or 'un' },
+			"\t== Trimmed Form: %s! (string %schanged)" % { res == test.expected and 'Correct' or 'Incorrect', test.str == res and 'un' or '' },
 			''
 		)
 
