@@ -11,15 +11,27 @@ local trim =
 		left =
 			function (str)
 				local tmp = str:find('%S')
-				local res = tmp and str:sub(tmp) or ''
+				local res = ''
+
+				-- We found something to "trim to".
+				if tmp then
+					-- Avoid string.sub()'ing the whole string from 1 to #str.
+					-- str_sub() in lstrlib.c does not avoid creating a new
+					-- string that is an exact copy of the string passed to it
+					res = tmp == 1 and str or str:sub(tmp)
+				end
 
 				return res, res ~= str
 			end,
 		right =
 			function (str)
 				local tmp = str:find('%S%s*$')
-				local res = tmp and str:sub(1, tmp) or ''
+				local res = ''
 
+				if tmp then
+					res = tmp == #str and str or str:sub(1, tmp)
+				end
+				
 				return res, res ~= str
 			end
 	}
@@ -110,6 +122,8 @@ for x, testcase in ipairs(tests) do
 		local res, modified = testcase.func(test.str)
 
 		println(
+			'\tTest #%d'                                % y,
+			'',
 			"\t==    Expecting: %s -> %s (%schange)"    % { squote(test.str), squote(test.expected), test.needs_trim and 'needs to ' or 'should not ' },
 			"\t==  Test Result: %s -> %s"               % { squote(test.str), squote(res) },
 			"\t== Trimmed Form: %s! (string %schanged)" % { res == test.expected and 'Correct' or 'Incorrect', modified and '' or 'un' },
