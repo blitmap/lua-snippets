@@ -1,3 +1,5 @@
+#!/usr/bin/env lua
+
 local table_contains =
 	function (t, what, mode)
 		if not mode then
