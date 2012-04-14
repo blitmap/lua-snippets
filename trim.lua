@@ -50,12 +50,6 @@ setmetatable(
 	}
 )
 
--- Buwhahahaha.
--- string.trim = trim
--- `('  derp  '):trim()`
--- `('  derp  '):trim.left()`
--- `('  derp  '):trim.right()`
-
 -- }}}
 
 -- {{{ Helpers
