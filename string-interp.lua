@@ -16,5 +16,6 @@ println =
 println(
 	'%.2f'          % math.pi,
 	'%-10.10s %04d' % { 'test', 123 },
-	'%s'            % 'hello world! :-)'
+	'%s'            % 'hello world! :-)',
+	'This is a %s!' % (type(true) == type(false) and 'boolean' or 'mess') -- These parenthesis are important.
 )
