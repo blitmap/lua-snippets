@@ -2,14 +2,19 @@
 
 local infix =
 	function (f)
-		local infix_object = newproxy(true)
+		local infix_object = newproxy(false)
 
-		getmetatable(infix_object).__sub =
-			function (lhs)
-				local mt = { lhs, __sub = function (self, b) return f(self[1 --[[lhs]]], b) end }
+		debug.setmetatable(
+			infix_object,
+			{
+				__sub =
+					function (lhs)
+						local mt = { lhs, __sub = function (self, b) return f(self[1 --[[lhs]]], b) end }
 
-				return setmetatable(mt, mt)
-			end
+						return setmetatable(mt, mt)
+					end
+			}
+		)
 
 		return infix_object
 	end
