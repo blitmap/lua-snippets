@@ -6,49 +6,45 @@
 -- the caller know if the string was changed at all
 -- (if the trim was necessary)
 
-local trim =
-	{
-		left =
-			function (str)
-				local tmp = str:find('%S')
-				local res = ''
+local trim = {}
 
-				-- We found something to "trim to".
-				if tmp then
-					-- Avoid string.sub()'ing the whole string from 1 to #str.
-					-- str_sub() in lstrlib.c does not avoid creating a new
-					-- string that is an exact copy of the string passed to it
-					res = tmp == 1 and str or str:sub(tmp)
-				end
+trim.ltrim =
+	function (str)
+		local tmp = str:find('%S')
+		local res = ''
 
-				return res, res ~= str
-			end,
-		right =
-			function (str)
-				local tmp = str:find('%S%s*$')
-				local res = ''
+		-- We found something to "trim to".
+		if tmp then
+			-- Avoid string.sub()'ing the whole string from 1 to #str.
+			-- str_sub() in lstrlib.c does not avoid creating a new
+			-- string that is an exact copy of the string passed to it
+			res = tmp == 1 and str or str:sub(tmp)
+		end
 
-				if tmp then
-					res = tmp == #str and str or str:sub(1, tmp)
-				end
+		return res, res ~= str
+	end
+
+trim.rtrim =
+	function (str)
+		local tmp = str:find('%S%s*$')
+		local res = ''
+
+		if tmp then
+			res = tmp == #str and str or str:sub(1, tmp)
+		end
 				
-				return res, res ~= str
-			end
-	}
+		return res, res ~= str
+	end
 
-setmetatable(
-	trim,
-	{
-		-- Our trim()
-		__call =
-			function (_, str)
-				local res1, stat1 = trim.left(str)
-				local res2, stat2 = trim.right(res1)
+trim.trim =
+	function (str)
+		local res1, stat1 = trim.ltrim(str)
+		local res2, stat2 = trim.rtrim(res1)
 
-				return res2, stat1 and stat2
-			end
-	}
-)
+		return res2, stat1 and stat2
+	end
+
+setmetatable(trim, { __call = function (_, str) return trim.trim(str) end })
 
 -- }}}
 
@@ -78,8 +74,8 @@ local squote =
 local tests =
 	{
 		{
-			func = trim.left,
-			func_name = 'trim.left',
+			func = trim.rtrim,
+			func_name = 'trim.rtrim',
 			{ str = '',             expected = ''           },
 			{ str = '  ',           expected = ''           },
 			{ str =   'ltrim me',   expected = 'ltrim me'   },
@@ -88,8 +84,8 @@ local tests =
 			{ str = '  ltrim me  ', expected = 'ltrim me  ' },
 		},
 		{
-			func = trim.right,
-			func_name = 'trim.right',
+			func = trim.rtrim,
+			func_name = 'trim.rtrim',
 			{ str = '',             expected = ''           },
 			{ str = '  ',           expected = ''           },
 			{ str =   'rtrim me',   expected =   'rtrim me' },
