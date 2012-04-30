@@ -1,10 +1,5 @@
 #!/usr/bin/env lua
 
--- Helper function. Usage: fprintf(io.stderr, 'Help %s!', 'me')
-local fprintf = function (fd, ...) fd:write(string.format(...)) end
-
-----
-
 local typenames, types = {}, {}
 
 for v_name, v in pairs(_G) do
@@ -24,11 +19,13 @@ end
 
 table.sort(typenames)
 
+io.stdout:write('\r\n')
+
 for _, typename in ipairs(typenames) do
 
 	-- Sort the elements of each type.
 	table.sort(types[typename])
 
-	fprintf(io.stdout, '%s:%s\r\n\r\n', typename, table.concat(types[typename], ','))
+	io.stdout:write(typename, ':\r\n\r\n\t', table.concat(types[typename], '\r\n\t'), '\r\n\r\n')
 
 end
