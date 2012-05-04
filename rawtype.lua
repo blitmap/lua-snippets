@@ -1,4 +1,4 @@
-
+#!/usr/bin/env lua
 
 -- {{{ The type() wrap and rawtype() implementation
 
@@ -12,7 +12,7 @@ type =
 
 		-- what has no __type metafield,
 		-- behave like the original type()
-		if not tmp or not tmp.__type then
+		if tmp == nil or tmp.__type == nil then
 			return orig_type(what)
 		end
 
@@ -20,7 +20,7 @@ type =
 		-- Note: __type maybe a function or an object with a __call metamethod
 		local status, ret = pcall(function () return tmp.__type(what) end)
 
-		return status and ret or tmp.__type
+		return tostring(status and ret or tmp.__type)
 	end
 
 -- Alias to that.
