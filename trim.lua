@@ -1,5 +1,12 @@
 #!/usr/bin/env lua
 
+local helpers = require('helpers')
+
+local println = helpers.println
+local squote  = helpers.squote
+
+assert(helpers.make_strings_interpolatable())
+
 -- {{{ ltrim(), rtrim(), and trim() definitions
 
 -- Each of these functions return a 2nd value letting
@@ -45,27 +52,6 @@ trim.trim =
 	end
 
 setmetatable(trim, { __call = function (_, str) return trim.trim(str) end })
-
--- }}}
-
--- {{{ Helpers
-
-getmetatable('').__mod =
-	function (fmt, args)
-		return type(args) == 'table' and fmt:format(unpack(args)) or fmt:format(args)
-	end
-
-local println =
-	function (...)
-		for _, v in ipairs(arg) do
-			io.stdout:write(v, '\r\n')
-		end
-	end
-
-local squote =
-	function (str)
-		return [[']] .. tostring(str):gsub([[']], [[\']]) .. [[']]
-	end
 
 -- }}}
 

@@ -34,8 +34,7 @@ _M.fprintln =
 			ret[x] = { fh:write(v, '\r\n') }
 		end
 
-		return ret
-	end
+		return ret end
 
 _M.println =
 	function (...)
@@ -78,6 +77,25 @@ _M.table_merge =
 
         return self
     end
+
+-- Use this instead of #(some_table) ~= 0
+-- fetching the length is much more expensive than
+-- seeing if it has an initial index to iterate with
+_M.table_is_empty =
+	function (t)
+		return next(t) == nil
+	end
+
+-- Pass a table (doesn't have to be an array), with a function, the function is
+-- called on each value (pairs()) and the pair is removed if f(value) returns true
+_M.table_remove_if =
+	function (t, f)
+		for k, v in pairs(t) do
+			if f(v) then
+				t[k] = nil -- unreference value, making it GC'able
+			end
+		end
+	end
 
 -- Use gsub() for match counting (example: helpers.count_matches('aaaa', 'a') -> 4
 _M.count_matches =

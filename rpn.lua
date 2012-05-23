@@ -10,32 +10,19 @@
 
 ----
 
--- Helper functions...
+local helpers = require('helpers')
 
-local fprintf =
-	function (fd, ...)
-		fd:write(string.format(...))
-	end
-
-local printf =
-	function (...)
-		fprintf(io.stdout, ...)
-	end
-
-local count_occurrences =
-	function (str, expression)
-		return string.gsub(str, expression, '%0')
-	end
+local printf = helpers.printf
+local count_matches = helpers.count_matches
 
 ----
 
-local operand = '[%de%.%-%+]+'
+local operand = '[+-]?[%de%.]+'
 local operator = '[^%d%s]%S*'
 
 for expr in io.lines() do
 
 	local original_expr = expr
-
 
 	-- Simple check to enforce RPN notation and
 	-- not anything Lua-expression-legal.
@@ -75,8 +62,8 @@ for expr in io.lines() do
 			do
 				-- Search for matches, don't modify the string at all.
 				-- Pretty much exploit gsub() for match count
-				local _, operands  = count_occurrences(original_expr, operand)
-				local _, operators = count_occurrences(original_expr, operator)
+				local _, operands  = count_matches(original_expr, operand)
+				local _, operators = count_matches(original_expr, operator)
 
 				-- We have a problem if this isn't true.
 				-- RPN expressions always have an odd number of
