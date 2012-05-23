@@ -13,9 +13,7 @@ assert(helpers.make_strings_interpolatable())
 -- the caller know if the string was changed at all
 -- (if the trim was necessary)
 
-local trim = {}
-
-trim.ltrim =
+string.ltrim =
 	function (str)
 		local tmp = str:find('%S')
 		local res = ''
@@ -31,7 +29,7 @@ trim.ltrim =
 		return res, res ~= str
 	end
 
-trim.rtrim =
+string.rtrim =
 	function (str)
 		local tmp = str:find('%S%s*$')
 		local res = ''
@@ -43,15 +41,13 @@ trim.rtrim =
 		return res, res ~= str
 	end
 
-trim.trim =
+string.trim =
 	function (str)
-		local res1, stat1 = trim.ltrim(str)
-		local res2, stat2 = trim.rtrim(res1)
+		local res1, stat1 = string.ltrim(str)
+		local res2, stat2 = string.rtrim(res1)
 
 		return res2, stat1 and stat2
 	end
-
-setmetatable(trim, { __call = function (_, str) return trim.trim(str) end })
 
 -- }}}
 
@@ -60,32 +56,29 @@ setmetatable(trim, { __call = function (_, str) return trim.trim(str) end })
 local tests =
 	{
 		{
-			func = trim.rtrim,
-			func_name = 'trim.rtrim',
-			{ str = '',             expected = ''           },
-			{ str = '  ',           expected = ''           },
-			{ str =   'ltrim me',   expected = 'ltrim me'   },
-			{ str = '  ltrim me',   expected = 'ltrim me'   },
-			{ str =   'ltrim me  ', expected = 'ltrim me  ' },
-			{ str = '  ltrim me  ', expected = 'ltrim me  ' },
+			func_name = 'string.ltrim',
+			{ '',             ''           },
+			{ '  ',           ''           },
+			{ 'ltrim me',     'ltrim me'   },
+			{ '  ltrim me',   'ltrim me'   },
+			{ 'ltrim me  ',   'ltrim me  ' },
+			{ '  ltrim me  ', 'ltrim me  ' },
 		},
 		{
-			func = trim.rtrim,
-			func_name = 'trim.rtrim',
-			{ str = '',             expected = ''           },
-			{ str = '  ',           expected = ''           },
-			{ str =   'rtrim me',   expected =   'rtrim me' },
-			{ str = '  rtrim me',   expected = '  rtrim me' },
-			{ str =   'rtrim me  ', expected =   'rtrim me' },
-			{ str = '  rtrim me  ', expected = '  rtrim me' },
+			func_name = 'string.rtrim',
+			{ '',             ''           },
+			{ '  ',           ''           },
+			{ 'rtrim me',     'rtrim me'   },
+			{ '  rtrim me',   '  rtrim me' },
+			{ 'rtrim me  ',   'rtrim me'   },
+			{ '  rtrim me  ', '  rtrim me' },
 		},
 		{
-			func = trim,
-			func_name = 'trim',
-			{ str = '',             expected = ''           },
-			{ str = '  ',           expected = ''           },
-			{ str =   'trim me',    expected = 'trim me'    },
-			{ str = '  trim me  ',  expected = 'trim me'    },
+			func_name = 'string.trim',
+			{ '',            ''        },
+			{ '  ',          ''        },
+			{ 'trim me',     'trim me' },
+			{ '  trim me  ', 'trim me' },
 		}
 	}
 
@@ -94,15 +87,19 @@ for x, testcase in ipairs(tests) do
 	println('Testing function: %s()\r\n' % testcase.func_name)
 
 	for y, test in ipairs(testcase) do
+		local f = assert(loadstring('return ' .. testcase.func_name))()
 
-		local res, modified = testcase.func(test.str)
+		local initial = test[1]
+		local expects = test[2]
+
+		local res, modified = f(initial)
 
 		println(
 			'\tTest #%d'                                % y,
 			'',
-			"\t==    Expecting: %s -> %s (%schange)"    % { squote(test.str), squote(test.expected), test.str == test.expected and 'should not ' or 'needs to ' },
-			"\t==  Test Result: %s -> %s"               % { squote(test.str), squote(res) },
-			"\t== Trimmed Form: %s! (string %schanged)" % { res == test.expected and 'Correct' or 'Incorrect', test.str == res and 'un' or '' },
+			"\t==    Expecting: %s -> %s (%schange)"    % { squote(initial), squote(expects), initial == expects and 'should not ' or 'needs to ' },
+			"\t==  Test Result: %s -> %s"               % { squote(initial), squote(res) },
+			"\t== Trimmed Form: %s! (string %schanged)" % { res == expects and 'Correct' or 'Incorrect', initial == res and 'un' or '' },
 			''
 		)
 
