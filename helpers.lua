@@ -582,25 +582,25 @@ _G.table.xmap    = txmap
 
 -- {{{ tcat()
 
-local tcat = nil -- forward declaration
+local tjoin = nil -- forward declaration
 
 do
-	local orig_tcat = table.concat
+	local tcat = table.concat
 
 	-- A table.concat() that respects __tostring metamethods on the table elements it's concatenating.
-	tcat =
+	tjoin =
 		function (self, ...)
-			return orig_tcat(timap(tcopy(self), tos), ...)
+			return tcat(timap(tcopy(self), tos), ...)
 		end
 
 end
 
 -- }}}
 
-assert(tcat({ 1, 2, 3 }, ',') == '1,2,3')
-assert(pcall(tcat, {}, '', -1, 1) == false) -- this should fail, invalid range
+assert(tjoin({ 1, 2, 3 }, ',') == '1,2,3')
+assert(pcall(tjoin, {}, '', -1, 1) == false) -- this should fail, invalid range
 
-_G.table.concat = tcat
+_G.table.join = tjoin
 
 -- {{{ tclear()
 
