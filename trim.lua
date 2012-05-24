@@ -1,11 +1,6 @@
 #!/usr/bin/env lua
 
-local helpers = require('helpers')
-
-local println = helpers.println
-local squote  = helpers.squote
-
-assert(helpers.make_strings_interpolatable())
+require('helpers')
 
 -- {{{ ltrim(), rtrim(), and trim() definitions
 
@@ -97,8 +92,8 @@ for x, testcase in ipairs(tests) do
 		println(
 			'\tTest #%d'                                % y,
 			'',
-			"\t==    Expecting: %s -> %s (%schange)"    % { squote(initial), squote(expects), initial == expects and 'should not ' or 'needs to ' },
-			"\t==  Test Result: %s -> %s"               % { squote(initial), squote(res) },
+			"\t==    Expecting: %s -> %s (%schange)"    % { initial:squote(), expects:squote(), initial == expects and 'should not ' or 'needs to ' },
+			"\t==  Test Result: %s -> %s"               % { initial:squote(),     res:squote() },
 			"\t== Trimmed Form: %s! (string %schanged)" % { res == expects and 'Correct' or 'Incorrect', initial == res and 'un' or '' },
 			''
 		)
@@ -106,7 +101,6 @@ for x, testcase in ipairs(tests) do
 	end
 
 	println()
-
 end
 
 -- }}}

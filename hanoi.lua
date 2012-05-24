@@ -3,15 +3,7 @@
 local debug_getinfo = debug.getinfo
 local string_match  = string.match
 
-local fprintf =
-	function (fd, ...)
-		fd:write(string.format(...))
-	end
-
-local scriptname =
-	function ()
-		return string_match(debug.getinfo(1, 'S').source, '@?([^/]+)$')
-	end
+require('helpers')
 
 local move_counter = 0
 
@@ -24,9 +16,13 @@ move =
 			move(src, dst, tmp,       1)
 			move(tmp, dst, src, num - 1)
 		end
+
 		print('Move from ' .. src .. ' peg to ' .. dst .. ' peg...')
+
 		move_counter = move_counter + 1
 	end
+
+print(scriptname())
 
 if #arg ~= 1 then
 	io.stdout:write(

@@ -20,15 +20,3 @@ string.pad =
 		-- pad() prefers left-justified centering '  cat   ' -- 8 chars wide ('cat'):pad(8)
 		return str:rpad(math[just and 'floor' or 'ceil']((len + #str) / 2), char):lpad(len, char)
 	end
-
-print('  cat'   == ('cat'):lpad(5))
-print('cat  '   == ('cat'):rpad(5))
-print('  cat  ' == ('cat'):pad(7))
-print('  cat   ' == ('cat'):pad(8))
-print('   cat  ' == ('cat'):pad(8, ' ', true))
-
-print()
-
-for i = 1, 33 do
-	print([[']] .. ('cat'):pad(i) .. [[']])
-end

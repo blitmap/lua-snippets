@@ -8,12 +8,7 @@
 -- character. (log10 could be an operator but would fail the eval)
 -- This is done in the off chance more operators are added to Lua in the future. :-]
 
-----
-
-local helpers = require('helpers')
-
-local printf = helpers.printf
-local count_matches = helpers.count_matches
+require('helpers')
 
 ----
 
@@ -62,8 +57,8 @@ for expr in io.lines() do
 			do
 				-- Search for matches, don't modify the string at all.
 				-- Pretty much exploit gsub() for match count
-				local _, operands  = count_matches(original_expr, operand)
-				local _, operators = count_matches(original_expr, operator)
+				local operands  = string.count_matches(original_expr, operand)
+				local operators = string.count_matches(original_expr, operator)
 
 				-- We have a problem if this isn't true.
 				-- RPN expressions always have an odd number of
