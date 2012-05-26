@@ -92,10 +92,10 @@ do
 
 	assert(old ~= null)
 
-    assert(printf('test'), 'printf() is incorrect')
+	assert(printf('test'), 'printf() is incorrect')
 
 	-- *CLOSE* /dev/null first
-    assert(ioutput():close())
+	assert(ioutput():close())
 
 	-- revert to old default output
 	assert(ioutput(old) == old)
@@ -839,7 +839,7 @@ assert(  tcompress({ [1] = 'cat', [3] = 'dog', [5] = 'horse' })[2] == 'dog')
 
 _G.table.compress = tcompress
 
--- {{{ tremove_if() & tfilter() (same function)
+-- {{{ tremove_if()
 
 -- Pass a table (doesn't have to be an array), with a function, the function is
 -- called on each value (pairs()) and the pair is removed if f(value) returns true
@@ -849,9 +849,7 @@ local tremove_if =
 		local tmp = tkeys(tcopy(self))
 
 		for k in pairs(self) do
-			local v = rawget(self, k)
-
-			if f(v) then
+			if f(rawget(self, k)) then
 				rawset(self, k, nil)
 			end
 		end
@@ -861,8 +859,6 @@ local tremove_if =
 		return self
 	end
 
-local tfilter = tremove_if
-
 -- }}}
 
 -- 2 gets removed as it proves true for being an even value, 3 should be shifted down
@@ -870,7 +866,6 @@ assert(tremove_if({ 1, 2, 3 }, function (x) return x % 2 == 0 end)[2] == 3)
 assert(tremove_if({ derp = '' }, function (x) return type(x) == 'string' end)['derp'] == nil)
 
 _G.table.remove_if = tremove_if
-_G.table.filter    = tfilter
 
 -- {{{ ttranspose()
 
