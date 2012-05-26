@@ -39,7 +39,7 @@ local unpack = unpack
 
 module('helpers', package.seeall)
 
--- {{{ scriptname() -- 
+-- {{{ scriptname() --
 
 -- get the script name
 local scriptname =
@@ -166,75 +166,44 @@ _G.println = println
 
 -- {{{ range()
 
--- range(10)       - iterate from 1 to 10 (increments by  1)
--- range(7, 2)     - iterate from 7 to 2  (increments by -1)
--- range(5, 50, 5) - iterate from 5 to 50 (increments by  5)
-
--- range(start, stop, step)
+-- range(start)             returns an iterator from 1 to a (step = 1)
+-- range(start, stop)       returns an iterator from a to b (step = 1)
+-- range(start, stop, step) returns an iterator from a to b, counting by step.
 local range =
-	function (...)
-		local arg = { ... }
-		local len = #arg
+	function (i, to, inc)
+		do
+			local i_type = type(i)
 
-		if len == 0 then
-			arg = { 1, 0, 1 } -- never iterate
-		else
-			if len < 3 then
-				-- only final value given
-				if len == 1 then
-					arg[2] = arg[1]                 -- move this down
-					arg[1] = arg[2] > 0 and 1 or -1 -- if our final is negative, iterate from 0
-				end
-	
-				-- determine the signedness of our step
-				arg[3] = arg[1] < arg[2] and 1 or -1
+			if i_type ~= 'number' then
+				-- behave like a call to ipairs() with no arguments
+				error(sformat([[bad argument #1 to 'range' (number expected, got %s)]], i_type == 'nil' and 'no value' or i_type))
 			end
 		end
 
-		local start, stop, step = unpack(arg)
+		if not to then
+			to = i
+			i  = to == 0 and 0 or (to > 0 and 1 or -1)
+		end
 
-		-- note the intentional i ~= stop
-		return
-			function (_, i)
-				if i ~= stop then
-					i = i + step
-					return i, i
-				end
+		-- we don't have to do the to == 0 check
+		-- 0 -> 0 with any inc would never iterate
+		inc = inc or (i < to and 1 or -1)
 
-				return nil
-			end,
-			nil,
-			start - step -- clever
+		-- step back (once) before we start
+		i = i - inc
+
+		return function () if i == to then return nil end i = i + inc return i, i end
 	end
-
---[[
--- range(a) returns an iterator from 1 to a (step = 1)
--- range(a, b) returns an iterator from a to b (step = 1)
--- range(a, b, step) returns an iterator from a to b, counting by step.
-local range =
-	function (a, b, step)
-
-	if not b then
-		b = a
-		a = 1
-	end
-
-	step = step or 1
-
-	local f =
-		step > 0
-			and     function(_, x) if x < b then return x + step end end
-			or step < 0
-				and function(_, x) if x > b then return x + step end end
-				or  function(_, x) return x end
-
-	return f, nil, a - step
-end
-]]
 
 -- }}}
 
--- FIXME: range() needs tests
+do
+	local tmp = {}
+
+	for i in range(10) do tmp[i] = i end
+
+	assert(#tmp == 10, 'range() is incorrect')
+end
 
 _G.range = range
 
@@ -271,7 +240,6 @@ assert(count_matches('aaaa', 'a') == 4)
 _G.string.count_matches = count_matches
 
 -- {{{ str_mod()
-
 local str_mod =
 	function (fmt, args)
 		return sformat(fmt, unpack(type(args) == 'table' and args or { args }))
@@ -672,7 +640,7 @@ local tinject =
     function (self, f, ...)
         local args = { ... }
 
-        for i = 1, #self do 
+        for i = 1, #self do
             args = { f(self[i], unpack(args)) }
         end
 
@@ -887,7 +855,7 @@ local ttranspose =
 
 assert(ttranspose({ 'cat' })['cat'] == 1)
 
-table.transpose = ttranspose
+_G.table.transpose = ttranspose
 
 -- {{{ is_callable()
 
