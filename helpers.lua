@@ -8,9 +8,16 @@ local tos     = tostring
 local string  = string
 
 ---- table-related
-local table        = table
-local next         = next
-local getmetatable = getmetatable
+local table    = table
+local next     = next
+local getmeta  = getmetatable
+local setmeta  = setmetatable -- can only use on tables
+local dsetmeta = debug.setmetatable
+local tcat     = table.concat
+local tins     = table.insert
+
+---- debug-related
+local dgetinfo = debug.getinfo
 
 ---- math-related
 local mfloor = math.floor
@@ -21,7 +28,7 @@ local pairs  = pairs
 local ipairs = ipairs
 
 ---- file-related
-local stdout = io.stdout
+local ioutput = io.output
 
 ---- random...-related
 local type   = type
@@ -32,29 +39,13 @@ local unpack = unpack
 
 module('helpers', package.seeall)
 
--- {{{ script()
-
--- get the full script path (path and script name)
-local script =
-	function ()
-		return debug.getinfo(2).short_src
-	end
-
--- }}}
-
--- path and script name (cwd + name)
--- FIXME: scriptname() needs tests
--- NOTE: changes with require()
-
-_G.script = script
-
--- {{{ scriptname()
+-- {{{ scriptname() -- 
 
 -- get the script name
 local scriptname =
 	function ()
 		-- 2 stack level of the function that called scriptname()
-		return smatch(debug.getinfo(2).short_src, '[^/]*$')
+		return smatch(dgetinfo(2).short_src, '[^/]*$')
 	end
 
 -- }}}
@@ -64,33 +55,24 @@ assert(scriptname() == 'helpers.lua', 'scriptname() is incorrect')
 
 _G.scriptname = scriptname
 
--- {{{ scriptpath()
-
--- get the path to the running script
-local scriptpath =
-	function ()
-		return smatch(debug.getinfo(2).short_src, '^.*/') or ''
-	end
-
--- }}}
-
--- cwd
--- FIXME: scriptpath() needs tests
--- NOTE: changes with require()
-
-_G.scriptpath = scriptpath
-
 -- {{{ fprintf()
 
 local fprintf =
-	function (fd, ...)
+	function (fh, ...)
 		-- fh:write() does have a return value!
-		return fd:write(sformat(...))
+		return fh:write(sformat(...))
 	end
 
 -- }}}
 
--- FIXME: fprintf() needs tests
+do
+    local dev_null = assert(io.open('/dev/null', 'w'))
+
+    assert(fprintf(dev_null, 'test'), 'fprintf() is incorrect')
+
+	-- REMEMBER TO CLOSE
+    assert(dev_null:close())
+end
 
 _G.fprintf = fprintf
 
@@ -98,12 +80,26 @@ _G.fprintf = fprintf
 
 local printf =
 	function (...)
-		return fprintf(stdout, ...)
+		return fprintf(ioutput(), ...)
 	end
 
 -- }}}
 
--- FIXME: printf() needs tests
+do
+	-- save the default output file
+	local old  = ioutput()
+	local null = assert(io.output('/dev/null'))
+
+	assert(old ~= null)
+
+    assert(printf('test'), 'printf() is incorrect')
+
+	-- *CLOSE* /dev/null first
+    assert(ioutput():close())
+
+	-- revert to old default output
+	assert(ioutput(old) == old)
+end
 
 _G.printf = printf
 
@@ -114,20 +110,30 @@ _G.printf = printf
 -- this might be slow with lots of args
 local fprintln =
 	function (fh, ...)
-		local arg = { ... }
-		local ret, x = {}, 0
+		local ret = nil
 
-		for _, v in ipairs(arg) do
-			x = x + 1
-			ret[x] = { fh:write(v, '\r\n') }
+		-- the point of this loop is to avoid simply doing a table.concat()
+		-- which would create a large string to *then* write to the file
+		for _, v in ipairs({ ... }) do
+			ret = { fh:write(v, '\r\n') }
+
+			-- something went wrong writing to fh
+			if ret[1] ~= true then break end
 		end
 
-		return ret
+		return unpack(ret)
 	end
 
 -- }}}
 
--- FIXME: fprintln() needs tests
+do
+    local dev_null = assert(io.open('/dev/null', 'w'))
+
+    assert(fprintln(dev_null, 'test', 'me', 'baby'), 'fprintln() is incorrect')
+
+    -- REMEMBER TO CLOSE
+    assert(dev_null:close())
+end
 
 _G.fprintln = fprintln
 
@@ -135,14 +141,102 @@ _G.fprintln = fprintln
 
 local println =
 	function (...)
-		return fprintln(stdout, ...)
+		return fprintln(ioutput(), ...)
 	end
 
 -- }}}
 
--- FIXME: println() needs tests
+do
+    -- save the default output file
+    local old  = ioutput()
+    local null = assert(ioutput('/dev/null'))
+
+    assert(old ~= null)
+
+    assert(println('testme!', 'no test me!'), 'println() is incorrect')
+
+    -- *CLOSE* /dev/null first
+    assert(ioutput():close())
+
+    -- revert to old default output
+    assert(ioutput(old) == old)
+end
 
 _G.println = println
+
+-- {{{ range()
+
+-- range(10)       - iterate from 1 to 10 (increments by  1)
+-- range(7, 2)     - iterate from 7 to 2  (increments by -1)
+-- range(5, 50, 5) - iterate from 5 to 50 (increments by  5)
+
+-- range(start, stop, step)
+local range =
+	function (...)
+		local arg = { ... }
+		local len = #arg
+
+		if len == 0 then
+			arg = { 1, 0, 1 } -- never iterate
+		else
+			if len < 3 then
+				-- only final value given
+				if len == 1 then
+					arg[2] = arg[1]                 -- move this down
+					arg[1] = arg[2] > 0 and 1 or -1 -- if our final is negative, iterate from 0
+				end
+	
+				-- determine the signedness of our step
+				arg[3] = arg[1] < arg[2] and 1 or -1
+			end
+		end
+
+		local start, stop, step = unpack(arg)
+
+		-- note the intentional i ~= stop
+		return
+			function (_, i)
+				if i ~= stop then
+					i = i + step
+					return i, i
+				end
+
+				return nil
+			end,
+			nil,
+			start - step -- clever
+	end
+
+--[[
+-- range(a) returns an iterator from 1 to a (step = 1)
+-- range(a, b) returns an iterator from a to b (step = 1)
+-- range(a, b, step) returns an iterator from a to b, counting by step.
+local range =
+	function (a, b, step)
+
+	if not b then
+		b = a
+		a = 1
+	end
+
+	step = step or 1
+
+	local f =
+		step > 0
+			and     function(_, x) if x < b then return x + step end end
+			or step < 0
+				and function(_, x) if x > b then return x + step end end
+				or  function(_, x) return x end
+
+	return f, nil, a - step
+end
+]]
+
+-- }}}
+
+-- FIXME: range() needs tests
+
+_G.range = range
 
 -- {{{ squote()
 
@@ -186,13 +280,13 @@ local str_mod =
 -- }}}
 
 do
-	local err_msg = 'getmetable().__mod() is incorrect'
+	local err_msg = 'str_mod() is incorrect'
 
 	assert(str_mod('1st %s',  'test')        == '1st test', err_msg)
 	assert(str_mod('%dnd %s', { 2, 'test' }) == '2nd test', err_msg)
 end
 
-getmetatable('').__mod = str_mod
+getmeta('').__mod = str_mod
 
 -- {{{ num_each()
 
@@ -239,7 +333,7 @@ do
 	tmp.each    = num_each
 	tmp.times   = num_times
 
-	debug.setmetatable(0, tmp)
+	dsetmeta(0, tmp)
 end
 
 -- {{{ func_chain()
@@ -259,35 +353,29 @@ do
 	assert(func_chain(function () end)(tmp) == tmp, 'func_chain() is incorrect')
 end
 
-do
-	local tmp   = {}
+-- {{{ func_wrap()
 
-	tmp.__index = tmp
-	tmp.chain   = func_chain
-
-	debug.setmetatable(function () end, tmp)
-end
-
--- {{{ tsort()
-
-local tsort = nil -- forward declaration
-
-do
-	local orig_tsort = table.sort
-
-	tsort = func_chain(orig_tsort)
-end
-
+local func_wrap =
+	function (self, outer)
+		return
+			function (...)
+				return outer(self(...))
+			end
+	end
+		
 -- }}}
 
-assert(tsort({ 'c', 'a', 'b' })[2] == 'b')
+do
+	local tmp = function (x) return x + 1 end
 
-table.sort = tsort
+	assert(func_wrap(tmp, tmp)(4) == 6, 'func_wrap() is incorrect')
+end
 
 -- {{{ tmerge()
 
--- merge a 2nd table into the 1st
--- accepts only array-like tables
+-- sequence portion of the 2nd table is inserted
+-- after the sequence portion of the 1st table
+-- hash values are "overlaid" from the 2nd table to the 1st
 -- oriented for:
 --	local some_table = setmetatable({ 1, 2, 3 }, { __index = table })
 --	some_table:merge({ 4, 5, 6 }))
@@ -298,8 +386,8 @@ local tmerge =
 
 		local len = #self
 
-		for i, v in ipairs(merge_me) do
-			self[len + i] = v
+		for k, v in pairs(merge_me) do
+			self[type(k) == 'number' and len + k or k] = v
 		end
 
         return self
@@ -337,6 +425,65 @@ assert(not tis_empty({ 'something' }))
 
 _G.table.is_empty = tis_empty
 
+-- {{{ func_to_sequence() -- accepts an iterator, returns a sequence of collected values
+
+local func_to_sequence =
+	function (i, i_self, ...)
+		local seq, ret = {}, { ... }
+
+		while true do
+			-- debug: print(i, i_self, unpack(ret))
+
+			ret = { i(i_self, unpack(ret)) }
+
+			-- iterators signify their
+			-- end with the first return
+			if ret[1] == nil then
+				break
+			end
+
+			seq[ret[1]] = ret[2]
+		end
+
+		return seq
+	end
+
+-- }}}
+
+do
+	local err_msg = 'func_to_sequence() is incorrect'
+
+	assert(func_to_sequence(ipairs({ 1, 2, 3, 4, 5 }))[5] == 5, err_msg)
+	assert(func_to_sequence(range(5))[5]                  == 5, err_msg)
+end
+
+do
+	local tmp   = {}
+
+	tmp.__index     = tmp
+	tmp.chain       = func_chain
+	tmp.wrap        = func_wrap
+	tmp.to_sequence = func_to_sequence
+
+	dsetmeta(function () end, tmp)
+end
+
+-- {{{ tsort()
+
+local tsort = nil -- forward declaration
+
+do
+	local orig_tsort = table.sort
+
+	tsort = func_chain(orig_tsort)
+end
+
+-- }}}
+
+assert(tsort({ 'c', 'a', 'b' })[2] == 'b')
+
+_G.table.sort = tsort
+
 -- {{{ tcopy()
 
 -- makes a copy of the table (a shallow copy)
@@ -352,14 +499,14 @@ tcopy =
 		for k in pairs(self) do rawset(ret, k, rawget(self, k)) end
 
 		do
-			local tmp = getmetatable(self)
+			local tmp = getmeta(self)
 
 			if tmp ~= nil then
 				tmp = tcopy(tmp)
 			end
 
 			-- sets a metatable if it's available
-			setmetatable(ret, tmp)
+			setmeta(ret, tmp)
 		end
 
 		return ret
@@ -369,13 +516,13 @@ tcopy =
 
 do
 	local tmp_mt = { 1, 2, 3 }
-	local tmp    = setmetatable({ 1, 2, 3 }, tmp_mt)
+	local tmp    = setmeta({ 1, 2, 3 }, tmp_mt)
 
 	assert(tcopy(tmp) ~= tmp)
 	assert(tcopy(tmp)[2] == 2)
 
-	assert(getmetatable(tcopy(tmp)) ~= tmp_mt)
-	assert(getmetatable(tcopy(tmp))[2] == 2)
+	assert(getmeta(tcopy(tmp)) ~= tmp_mt)
+	assert(getmeta(tcopy(tmp))[2] == 2)
 end
 
 _G.table.copy = tcopy
@@ -398,14 +545,14 @@ tdeep_copy =
 		end
 
 		do
-			local tmp = getmetatable(self)
+			local tmp = getmeta(self)
 
 			if tmp ~= nil then
 				tmp = tdeep_copy(tmp)
 			end
 
 			-- sets a metatable if it's available
-			setmetatable(ret, tmp)
+			setmeta(ret, tmp)
 		end
 
 		return ret
@@ -414,7 +561,7 @@ tdeep_copy =
 -- }}}
 
 do
-	local a = setmetatable({ test = 'test' }, { test2 = { test3 = 'test' } })
+	local a = setmeta({ test = 'test' }, { test2 = { test3 = 'test' } })
 	local b = tdeep_copy(a)
 
 	local err_msg = 'tdeep_copy() is incorrect'
@@ -422,7 +569,7 @@ do
 	assert(a ~= b, err_msg) assert(a.test == b.test, err_msg)
 
 	do
-		local a_mt, b_mt = getmetatable(a), getmetatable(b)
+		local a_mt, b_mt = getmeta(a), getmeta(b)
 
 		assert(a_mt ~= b_mt,                         err_msg)
 		assert(a_mt.test2       ~= b_mt.test2,       err_msg)
@@ -541,12 +688,12 @@ _G.table.inject = tinject
 
 -- {{{ treduce()
 
--- accepts a table, and a *binary* function to reduce all the elements of the table to 1 return
+-- accepts a table, a binary function, and (optionally) 1 initial argument
 local treduce =
-	function (self, f)
+	function (self, f, ...)
 		-- arg number restriction, c wut i did thar?
 		-- tinject() actually allows for more flexibility
-		return tinject(self, function (x, y) return f(x, y) end)
+		return tinject(self, function (x, y) return f(x, y) end, (...))
 	end
 
 -- }}}
@@ -580,20 +727,13 @@ end
 _G.table.brigade = tbrigade
 _G.table.xmap    = txmap
 
--- {{{ tcat()
+-- {{{ tjoin()
 
-local tjoin = nil -- forward declaration
-
-do
-	local tcat = table.concat
-
-	-- A table.concat() that respects __tostring metamethods on the table elements it's concatenating.
-	tjoin =
-		function (self, ...)
-			return tcat(timap(tcopy(self), tos), ...)
-		end
-
-end
+-- A table.concat() that respects __tostring metamethods on the table elements it's concatenating.
+local tjoin =
+	function (self, ...)
+		return tcat(timap(tcopy(self), tos), ...)
+	end
 
 -- }}}
 
@@ -697,7 +837,7 @@ local tcompress =
 assert(#(tcompress({ [1] = 'cat', [3] = 'dog', [5] = 'horse' }))   == 3)
 assert(  tcompress({ [1] = 'cat', [3] = 'dog', [5] = 'horse' })[2] == 'dog')
 
-table.compress = tcompress
+_G.table.compress = tcompress
 
 -- {{{ tremove_if() & tfilter() (same function)
 
@@ -765,7 +905,7 @@ local is_callable =
 			return true
 		end
 
-		local what_mt = getmetatable(what)
+		local what_mt = getmeta(what)
 
 		if what_mt ~= nil and type(what_mt.__call) == 'function' then
 			return true
@@ -780,16 +920,16 @@ do
 	local err_msg = 'is_callable() is incorrect'
 
 	assert(function () end, err_msg)
-	assert(is_callable(setmetatable({}, { __call = function () end }), err_msg))
-	assert(not is_callable(setmetatable({}, { __call = 4 })), err_msg)
+	assert(is_callable(setmeta({}, { __call = function () end }), err_msg))
+	assert(not is_callable(setmeta({}, { __call = 4 })), err_msg)
 	assert(not is_callable(4), err_msg)
 
 	do
 		local a, b = {}, {}
 
 		-- circularity -- maybe circuhilarity? :o)
-		setmetatable(a, { __call = b })
-		setmetatable(b, { __call = a })
+		setmeta(a, { __call = b })
+		setmeta(b, { __call = a })
 
 		assert(not is_callable(a), err_msg)
 	end
@@ -818,20 +958,24 @@ assert(valof(function () return function () return 4 end end) == 4)
 
 _G.valof = valof
 
--- {{{ lit()
+-- {{{ lit() & identity() (same function)
 
 -- lit(something) returns something exactly as it was passed
 -- lit() -> literal, you wouldn't imagine how useful this is
+
 local lit =
 	function (what)
 		return what
 	end
 
+local identity = lit
+
 -- }}}
 
 -- hahaha
-assert(lit(4) == 4)
+assert(rawequal(lit(4), 4))
 
-_G.lit = lit
+_G.lit      = lit
+_G.identity = identity
 
 return _M
