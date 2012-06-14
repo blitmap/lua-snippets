@@ -1,106 +1,52 @@
 #!/usr/bin/env lua
 
-require('helpers')
+local ssub  = string.sub
+local sfind = string.find
 
--- {{{ ltrim(), rtrim(), and trim() definitions
+module('trim')
 
 -- Each of these functions return a 2nd value letting
 -- the caller know if the string was changed at all
--- (if the trim was necessary)
 
-string.ltrim =
-	function (str)
-		local tmp = str:find('%S')
-		local res = ''
+ltrim =
+	function (s)
+		local res = s
+		local tmp = sfind(res, '%S')
 
-		-- We found something to "trim to".
-		if tmp then
-			-- Avoid string.sub()'ing the whole string from 1 to #str.
-			-- str_sub() in lstrlib.c does not avoid creating a new
-			-- string that is an exact copy of the string passed to it
-			res = tmp == 1 and str or str:sub(tmp)
+		-- string.sub() will create a duplicate if
+		-- called with the first and last index
+		-- (str_sub() in lstrlib.c)
+
+		if not tmp then
+			res = ''
+		elseif tmp ~= 1 then
+			res = ssub(res, tmp)
 		end
 
-		return res, res ~= str
+		return res, res ~= s
 	end
 
-string.rtrim =
-	function (str)
-		local tmp = str:find('%S%s*$')
-		local res = ''
+rtrim =
+	function (s)
+		local res = s
+		local tmp = sfind(res, '%S%s*$')
 
-		if tmp then
-			res = tmp == #str and str or str:sub(1, tmp)
+		if not tmp then
+			res = ''
+		elseif tmp ~= #res then
+			res = ssub(res, 1, tmp)
 		end
 				
-		return res, res ~= str
+		return res, res ~= s
 	end
 
-string.trim =
-	function (str)
-		local res1, stat1 = string.ltrim(str)
-		local res2, stat2 = string.rtrim(res1)
+trim =
+	function (s)
+		local res1, stat1 = ltrim(s)
+		local res2, stat2 = rtrim(res1)
 
 		return res2, stat1 and stat2
 	end
 
--- }}}
+return _M
 
--- {{{ Testing *trim() functions :-)
-
-local tests =
-	{
-		{
-			func_name = 'string.ltrim',
-			{ '',             ''           },
-			{ '  ',           ''           },
-			{ 'ltrim me',     'ltrim me'   },
-			{ '  ltrim me',   'ltrim me'   },
-			{ 'ltrim me  ',   'ltrim me  ' },
-			{ '  ltrim me  ', 'ltrim me  ' },
-		},
-		{
-			func_name = 'string.rtrim',
-			{ '',             ''           },
-			{ '  ',           ''           },
-			{ 'rtrim me',     'rtrim me'   },
-			{ '  rtrim me',   '  rtrim me' },
-			{ 'rtrim me  ',   'rtrim me'   },
-			{ '  rtrim me  ', '  rtrim me' },
-		},
-		{
-			func_name = 'string.trim',
-			{ '',            ''        },
-			{ '  ',          ''        },
-			{ 'trim me',     'trim me' },
-			{ '  trim me  ', 'trim me' },
-		}
-	}
-
-for x, testcase in ipairs(tests) do
-
-	println('Testing function: %s()\r\n' % testcase.func_name)
-
-	for y, test in ipairs(testcase) do
-		local f = assert(loadstring('return ' .. testcase.func_name))()
-
-		local initial = test[1]
-		local expects = test[2]
-
-		local res, modified = f(initial)
-
-		println(
-			'\tTest #%d'                                % y,
-			'',
-			"\t==    Expecting: %s -> %s (%schange)"    % { initial:squote(), expects:squote(), initial == expects and 'should not ' or 'needs to ' },
-			"\t==  Test Result: %s -> %s"               % { initial:squote(),     res:squote() },
-			"\t== Trimmed Form: %s! (string %schanged)" % { res == expects and 'Correct' or 'Incorrect', initial == res and 'un' or '' },
-			''
-		)
-
-	end
-
-	println()
-end
-
--- }}}
