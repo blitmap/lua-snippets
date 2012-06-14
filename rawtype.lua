@@ -2,26 +2,31 @@
 
 -- The type() wrap and rawtype() implementation
 
--- Save this.
-local orig_type = type
+-- Save this under a new name
+rawtype = type
 
 -- Wrap orig_type() to respect a __type metamethod
 type =
 	function (what)
-		local tmp = getmetatable(what)
+		do
+			local tmp = getmetatable(what)
 
-		-- what has no __type metafield,
-		-- behave like the original type()
-		if tmp == nil or tmp.__type == nil then
-			return orig_type(what)
+			if tmp ~= nil then
+				local tmp2 = rawtype(tmp.__type)
+
+				-- metamethods must be functions, not callable objects (table/userdata with __call())
+				-- exceptions: __index and __newindex can be tables
+				-- the exception here is __type() may be a string
+				if     tmp2 == 'string'   then return tostring(tmp.__type)
+				elseif tmp2 == 'function' then return tostring(tmp.__type(what))
+				end
+
+				-- if we're at this point, __type is -----.
+				-- unacceptable, fall back to rawtype() v
+			end
 		end
 
-		-- If __type is callable, return that result (or return its member value).
-		-- Note: __type maybe a function or an object with a __call metamethod
-		local status, ret = pcall(tmp.__type, what)
-
-		return tostring(status and ret or tmp.__type)
+		-- fallback
+		return rawtype(what)
 	end
 
--- Alias to that.
-rawtype = orig_type
