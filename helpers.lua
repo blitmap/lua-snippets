@@ -110,7 +110,7 @@ _G.printf = printf
 -- this might be slow with lots of args
 local fprintln =
 	function (fh, ...)
-		local ret = nil
+		local ret = { true }
 
 		-- the point of this loop is to avoid simply doing a table.concat()
 		-- which would create a large string to *then* write to the file
@@ -559,7 +559,9 @@ do
 		function (self)
 			local len = #self
 
-			for i = 1, mfloor(len / 2) do
+			-- we don't actually need math.floor(len / 2)
+			-- since we step by 1
+			for i = 1, len / 2 do
 				self[i], self[len] = self[len], self[i]
 				len = len - 1
 			end
