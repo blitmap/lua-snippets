@@ -699,7 +699,7 @@ _G.table.xmap    = txmap
 
 -- {{{ tjoin()
 
--- A table.concat() that respects __tostring metamethods on the table elements it's concatenating.
+-- A table.join() that respects __tostring metamethods on the table elements it's joining.
 local tjoin =
 	function (self, ...)
 		return tcat(timap(tcopy(self), tos), ...)
