@@ -1,9 +1,9 @@
 -- add the enclosing directory as a search path for
 -- require(); concatenation order is specific here
-package.path = '../?.lua;' .. package.path
+package.path = '../../?.lua;' .. package.path
 
 local helpers = require('helpers')
-local trim    = require('trim')
+local trim    = require('string.trim')
 
 string.rtrim = trim.rtrim
 string.ltrim = trim.ltrim

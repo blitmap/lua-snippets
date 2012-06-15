@@ -2,9 +2,9 @@
 
 -- add the enclosing directory as a search path for
 -- require(); concatenation order is specific here
-package.path = '../?.lua;' .. package.path
+package.path = '../../?.lua;' .. package.path
 
-local pad = require('pad')
+local pad = require('string.pad')
 
 string.lpad = pad.lpad
 string.rpad = pad.rpad
