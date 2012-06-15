@@ -1,21 +1,17 @@
 #!/usr/bin/env lua
 
-local type    = type
-local sformat = string.format
+local t       = type
+local fmt     = string.format
+local unpack  = unpack
+local getmeta = getmetatable
 
 module('strinterp')
 
-strinterp =
+getmeta('').__mod =
 	function(a, b)
-		return type(b) == 'table' and sformat(a, unpack(b)) or sformat(a, b)
---		Swell to write by not as efficient as ^
---		return a:format(unpack(type(b) == 'table' and b or { b }))
+		return t(b) == 'table' and fmt(a, unpack(b)) or fmt(a, b)
+--		return fmt(a, unpack(t(b) == 'table' and b or { b })) -- not as efficient
 	end
 
--- add it to the global string table
-make_global =
-	function ()
-		_G.string.__mod = strinterp
-	end
-
+-- nothing in here...
 return _M
