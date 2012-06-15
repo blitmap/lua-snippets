@@ -1,21 +1,21 @@
 #!/usr/bin/env lua
 
-getmetatable('').__mod =
+local type    = type
+local sformat = string.format
+
+module('strinterp')
+
+strinterp =
 	function(a, b)
-		return type(b) == 'table' and a:format(unpack(b)) or a:format(b)
+		return type(b) == 'table' and sformat(a, unpack(b)) or sformat(a, b)
 --		Swell to write by not as efficient as ^
 --		return a:format(unpack(type(b) == 'table' and b or { b }))
 	end
 
-println =
-	function (...)
-		return io.stdout:write(table.concat(arg, '\r\n') .. '\r\n')
+-- add it to the global string table
+make_global =
+	function ()
+		_G.string.__mod = strinterp
 	end
 
--- Example usage :-)
-println(
-	'%.2f'          % math.pi,
-	'%-10.10s %04d' % { 'test', 123 },
-	'%s'            % 'hello world! :-)',
-	'This is a %s!' % (type(true) == type(false) and 'boolean' or 'mess') -- These parenthesis are important.
-)
+return _M
