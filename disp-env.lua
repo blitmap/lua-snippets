@@ -2,8 +2,7 @@
 
 local typenames, types = {}, {}
 
-for v_name, v in pairs(_G) do
-
+for k, v in pairs(_G) do
 	local v_type = type(v)
 
 	-- Collect the type names and create
@@ -13,19 +12,22 @@ for v_name, v in pairs(_G) do
 		table.insert(typenames, v_type)
 	end
 	
-	table.insert(types[v_type], v_name)
-
+	table.insert(types[v_type], k)
 end
 
 table.sort(typenames)
 
-io.stdout:write('\r\n')
+io.output():write('\r\n')
 
 for _, typename in ipairs(typenames) do
-
 	-- Sort the elements of each type.
 	table.sort(types[typename])
 
-	io.stdout:write(typename, ':\r\n\r\n\t', table.concat(types[typename], '\r\n\t'), '\r\n\r\n')
+	io.output():write(typename, ':\r\n\r\n')
 
+	for _, v in ipairs(types[typename]) do
+		io.output():write('\t', tostring(v), '\r\n')
+	end
+
+	io.output():write('\r\n')
 end
