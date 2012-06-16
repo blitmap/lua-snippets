@@ -4,24 +4,34 @@ local srep = string.rep
 
 module('pad')
 
+-- all of these functions return their result and a boolean
+-- to notify the caller if the string was even changed
+
 -- pad the left side
 lpad =
-	function (s, len, c)
-		return srep(c or ' ', len - #s) .. s
+	function (s, l, c)
+		local res = srep(c or ' ', l - #s) .. s
+
+		return res, res ~= s
 	end
 
 -- pad the right side
 rpad =
-	function (s, len, c)
-		return s .. srep(c or ' ', len - #s)
+	function (s, l, c)
+		local res = s .. srep(c or ' ', l - #s)
+
+		return res, res ~= s
 	end
 
 -- pad on both sides (centering with left justification)
 pad =
-	function (s, len, c)
+	function (s, l, c)
 		c = c or ' '
 
-		return lpad(rpad(s, (len / 2) + #s, c), len, c)
+		local res1, stat1 = rpad(s,    (l / 2) + #s, c) -- pad to half-length + the length of s
+		local res2, stat2 = lpad(res1,  l,           c) -- right-pad our left-padded string to the full length
+
+		return res2, stat1 or stat2
 	end
 
 return _M

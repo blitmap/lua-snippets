@@ -45,7 +45,7 @@ trim =
 		local res1, stat1 = ltrim(s)
 		local res2, stat2 = rtrim(res1)
 
-		return res2, stat1 and stat2
+		return res2, stat1 or stat2
 	end
 
 return _M
