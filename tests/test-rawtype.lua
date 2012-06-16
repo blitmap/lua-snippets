@@ -1,4 +1,4 @@
-require('test-setup')
+require('setup-test')
 
 module('rawtype-testcase', lunit.testcase, package.seeall)
 

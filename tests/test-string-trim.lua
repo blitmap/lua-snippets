@@ -1,4 +1,4 @@
-require('test-setup')
+require('setup-test')
 
 module('trim-testcase', lunit.testcase, package.seeall)
 
