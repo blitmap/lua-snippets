@@ -295,6 +295,23 @@ test_table_transpose =
 		assert_equal(1, table.transpose({ 'cat' })['cat'])
 	end
 
+test_table_stripe =
+	function ()
+		local tmp = table.stripe({ 1, 2, 3 }, 'nyan')
+
+		assert_table(tmp)
+		assert_equal(1,      tmp[1])
+		assert_equal('nyan', tmp[2])
+		assert_equal(2,      tmp[3])
+		assert_equal('nyan', tmp[4])
+		assert_equal(3,      tmp[5])
+		assert_equal('nyan', tmp[6])
+		assert_equal(6,      #tmp)
+
+		-- nothing to stripe
+		assert_equal(0, #table.stripe({}, 'nyan'))
+	end
+
 test_is_callable =
 	function ()
 		-- is

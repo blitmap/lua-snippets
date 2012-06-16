@@ -628,6 +628,23 @@ table.transpose = ttranspose
 
 -- }}}
 
+-- {{{ table.stripe() (tstripe())
+
+local tstripe =
+	function (self, stripe)
+		-- start after the last element
+		-- table.insert() pushes existing values to the end
+		for i = #self + 1, 2, -1 do
+			tins(self, i, stripe)
+		end
+
+		return self
+	end
+
+table.stripe = tstripe
+
+-- }}}
+
 -- {{{ is_callable()
 
 -- lua doesn't allow for:
