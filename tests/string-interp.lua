@@ -1,11 +1,20 @@
-#!/usr/bin/env lua
+require('test-setup')
 
--- add the enclosing directory as a search path for
--- require(); concatenation order is specific here
-package.path = '../../?.lua;' .. package.path
+module('trim-testcase', lunit.testcase, package.seeall)
 
-require('string.strinterp')
+setup =
+	function ()
+		require('string-interp')
+	end
 
-print('%s'    % 'test')
-print('%s %s' % { 'hello', 'world' })
-print('%s'    % (true and 'this is important' or 'the parenthesis are a must'))
+test_singular_interp =
+	function ()
+		assert_equal('hello world',            'hello %s'      % 'world'                       )
+		assert_equal('parenthesis are a must', '%s are a must' % (true and 'parenthesis' or ''))
+	end
+
+test_multiple_interp =
+	function ()
+		assert_equal('hello world', 'hello %s' % { 'world'       })
+		assert_equal('a b c',       '%s %s %s' % { 'a', 'b', 'c' })
+	end

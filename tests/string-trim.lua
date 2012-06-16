@@ -1,66 +1,184 @@
--- add the enclosing directory as a search path for
--- require(); concatenation order is specific here
-package.path = '../../?.lua;' .. package.path
+require('test-setup')
 
-local helpers = require('helpers')
-local trim    = require('string.trim')
+module('trim-testcase', lunit.testcase, package.seeall)
 
-string.rtrim = trim.rtrim
-string.ltrim = trim.ltrim
-string.trim  = trim.trim
+setup =
+	function ()
+		require('string-trim')
+	end
 
-local tests =
-    {   
-        {   
-            func_name = 'string.ltrim',
-            { '',             ''           },  
-            { '  ',           ''           },  
-            { 'ltrim me',     'ltrim me'   },  
-            { '  ltrim me',   'ltrim me'   },  
-            { 'ltrim me  ',   'ltrim me  ' },
-            { '  ltrim me  ', 'ltrim me  ' },
-        },  
-        {   
-            func_name = 'string.rtrim',
-            { '',             ''           },  
-            { '  ',           ''           },  
-            { 'rtrim me',     'rtrim me'   },  
-            { '  rtrim me',   '  rtrim me' },
-            { 'rtrim me  ',   'rtrim me'   },  
-            { '  rtrim me  ', '  rtrim me' },
-        },  
-        {   
-            func_name = 'string.trim',
-            { '',            ''        },  
-            { '  ',          ''        },  
-            { 'trim me',     'trim me' },
-            { '  trim me  ', 'trim me' },
-        }   
-    }   
+test_trim_require =
+	function ()
+		assert_table(trim)
+	end
 
-for x, testcase in ipairs(tests) do
+test_ltrim =
+	function ()
+		local ltrim = trim.ltrim
 
-    println('Testing function: %s()\r\n' % testcase.func_name)
+		assert_function(ltrim)
 
-    for y, test in ipairs(testcase) do
-        local f = assert(loadstring('return ' .. testcase.func_name))()
+		local res, stat = nil, nil
 
-        local initial = test[1]
-        local expects = test[2]
+		-- '' -> ''
+		res, stat = ltrim('')
+		assert_string(res)
+		assert_boolean(stat)
+		assert_equal('', res)
+		assert_false(stat)
 
-        local res, modified = f(initial)
+		-- ' ' -> ''
+		res, stat = ltrim(' ')
+		assert_string(res)
+		assert_boolean(stat)
+		assert_equal('', res)
+		assert_true(stat)
 
-        println(
-            '\tTest #%d'                                % y,
-            '', 
-            "\t==    Expecting: %s -> %s (%schange)"    % { initial:squote(), expects:squote(), initial == expects and 'should not ' or 'needs to ' },
-            "\t==  Test Result: %s -> %s"               % { initial:squote(),     res:squote() },
-            "\t== Trimmed Form: %s! (string %schanged)" % { res == expects and 'Correct' or 'Incorrect', initial == res and 'un' or '' },
-            ''  
-        )   
+		-- '#' -> '#'
+		res, stat = ltrim('#')
+		assert_string(res)
+		assert_boolean(stat)
+		assert_equal('#', res)
+		assert_false(stat)
 
-    end 
+		-- ' #' -> ' #'
+		res, stat = ltrim(' #')
+		assert_string(res)
+		assert_boolean(stat)
+		assert_equal('#', res)
+		assert_true(stat)
 
-    println()
-end
+		-- '# ' -> '# '
+		res, stat = ltrim('# ')
+		assert_string(res)
+		assert_boolean(stat)
+		assert_equal('# ', res)
+		assert_false(stat)
 
+		-- ' # ' -> '# '
+		res, stat = ltrim(' # ')
+		assert_string(res)
+		assert_boolean(stat)
+		assert_equal('# ', res)
+		assert_true(stat)
+	end
+
+test_rtrim =
+	function ()
+		local rtrim = trim.rtrim
+
+		assert_function(rtrim)
+
+		local res, stat = nil, nil
+
+		-- '' -> ''
+		res, stat = rtrim('')
+		assert_string(res)
+		assert_boolean(stat)
+		assert_equal('', res)
+		assert_false(stat)
+
+		-- ' ' -> ''
+		res, stat = rtrim(' ')
+		assert_string(res)
+		assert_boolean(stat)
+		assert_equal('', res)
+		assert_true(stat)
+
+		-- '#' -> '#'
+		res, stat = rtrim('#')
+		assert_string(res)
+		assert_boolean(stat)
+		assert_equal('#', res)
+		assert_false(stat)
+
+		-- ' #' -> ' #'
+		res, stat = rtrim(' #')
+		assert_string(res)
+		assert_boolean(stat)
+		assert_equal(' #', res)
+		assert_false(stat)
+
+		-- '# ' -> '#'
+		res, stat = rtrim('# ')
+		assert_string(res)
+		assert_boolean(stat)
+		assert_equal('#', res)
+		assert_true(stat)
+
+		-- ' # ' -> ' #'
+		res, stat = rtrim(' # ')
+		assert_string(res)
+		assert_boolean(stat)
+		assert_equal(' #', res)
+		assert_true(stat)
+	end
+
+test_trim =
+	function ()
+		local trim = trim.trim
+
+		assert_function(trim)
+
+		local res, stat = nil, nil
+
+		-- '' -> ''
+		res, stat = trim('')
+		assert_string(res)
+		assert_boolean(stat)
+		assert_equal('', res)
+		assert_false(stat)
+
+		-- ' ' -> ''
+		res, stat = trim(' ')
+		assert_string(res)
+		assert_boolean(stat)
+		assert_equal('', res)
+		assert_true(stat)
+
+		-- '#' -> '#'
+		res, stat = trim('#')
+		assert_string(res)
+		assert_boolean(stat)
+		assert_equal('#', res)
+		assert_false(stat)
+
+		-- ' #' -> '#'
+		res, stat = trim(' #')
+		assert_string(res)
+		assert_boolean(stat)
+		assert_equal('#', res)
+		assert_true(stat)
+
+		-- '# ' -> '#'
+		res, stat = trim('# ')
+		assert_string(res)
+		assert_boolean(stat)
+		assert_equal('#', res)
+		assert_true(stat)
+
+		-- ' # ' -> '#'
+		res, stat = trim(' # ')
+		assert_string(res)
+		assert_boolean(stat)
+		assert_equal('#', res)
+		assert_true(stat)
+	end
+
+test_all_functions_have_tests =
+	function ()
+	    local funcs, x = {}, 0
+
+		for k, v in pairs(trim) do
+			if type(v) == 'function' and type(_M['test_' .. k]) ~= 'function' then
+				x = x + 1 
+				funcs[x] = k 
+			end 
+		end 
+
+		if next(funcs) ~= nil then
+			table.sort(funcs)
+
+			fail(('these functions do not have associated tests: %s()'):format(table.concat(funcs, '(), ')))
+		end 
+	end
