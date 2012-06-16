@@ -5,10 +5,8 @@ local sgsub   = string.gsub
 local smatch  = string.match
 local sformat = string.format
 local tos     = tostring
-local string  = string
 
 ---- table-related
-local table    = table
 local next     = next
 local getmeta  = getmetatable
 local setmeta  = setmetatable -- can only use on tables
@@ -18,10 +16,6 @@ local tins     = table.insert
 
 ---- debug-related
 local dgetinfo = debug.getinfo
-
----- math-related
-local mfloor = math.floor
-local math   = math
 
 ---- generator-related
 local pairs  = pairs
@@ -37,12 +31,10 @@ local assert = assert
 local select = select
 local unpack = unpack
 
-module('helpers', package.seeall)
-
 -- {{{ scriptname() --
 
 -- get the script name
-local scriptname =
+scriptname =
 	function ()
 		-- 2 stack level of the function that called scriptname()
 		return smatch(dgetinfo(2).short_src, '[^/]*$')
@@ -50,14 +42,9 @@ local scriptname =
 
 -- }}}
 
--- just the script itself
-assert(scriptname() == 'helpers.lua', 'scriptname() is incorrect')
-
-_G.scriptname = scriptname
-
 -- {{{ fprintf()
 
-local fprintf =
+fprintf =
 	function (fh, ...)
 		-- fh:write() does have a return value!
 		return fh:write(sformat(...))
@@ -65,50 +52,21 @@ local fprintf =
 
 -- }}}
 
-do
-    local dev_null = assert(io.open('/dev/null', 'w'))
-
-    assert(fprintf(dev_null, 'test'), 'fprintf() is incorrect')
-
-	-- REMEMBER TO CLOSE
-    assert(dev_null:close())
-end
-
-_G.fprintf = fprintf
-
 -- {{{ printf()
 
-local printf =
+printf =
 	function (...)
 		return fprintf(ioutput(), ...)
 	end
 
 -- }}}
 
-do
-	-- save the default output file
-	local old  = ioutput()
-	local null = assert(io.output('/dev/null'))
-
-	assert(old ~= null)
-
-	assert(printf('test'), 'printf() is incorrect')
-
-	-- *CLOSE* /dev/null first
-	assert(ioutput():close())
-
-	-- revert to old default output
-	assert(ioutput(old) == old)
-end
-
-_G.printf = printf
-
 -- {{{ fprintln()
 
 -- pass any number of strings and this will terminate them when written to the file handle
 -- collects the returned values from fh:write() in a table for each arg passed, which is in another table that gets returned
 -- this might be slow with lots of args
-local fprintln =
+fprintln =
 	function (fh, ...)
 		local ret = { true }
 
@@ -126,50 +84,21 @@ local fprintln =
 
 -- }}}
 
-do
-    local dev_null = assert(io.open('/dev/null', 'w'))
-
-    assert(fprintln(dev_null, 'test', 'me', 'baby'), 'fprintln() is incorrect')
-
-    -- REMEMBER TO CLOSE
-    assert(dev_null:close())
-end
-
-_G.fprintln = fprintln
-
 -- {{{ println()
 
-local println =
+println =
 	function (...)
 		return fprintln(ioutput(), ...)
 	end
 
 -- }}}
 
-do
-    -- save the default output file
-    local old  = ioutput()
-    local null = assert(ioutput('/dev/null'))
-
-    assert(old ~= null)
-
-    assert(println('testme!', 'no test me!'), 'println() is incorrect')
-
-    -- *CLOSE* /dev/null first
-    assert(ioutput():close())
-
-    -- revert to old default output
-    assert(ioutput(old) == old)
-end
-
-_G.println = println
-
 -- {{{ range()
 
 -- range(start)             returns an iterator from 1 to a (step = 1)
 -- range(start, stop)       returns an iterator from a to b (step = 1)
 -- range(start, stop, step) returns an iterator from a to b, counting by step.
-local range =
+range =
 	function (i, to, inc)
 		do
 			local i_type = type(i)
@@ -197,17 +126,7 @@ local range =
 
 -- }}}
 
-do
-	local tmp = {}
-
-	for i in range(10) do tmp[i] = i end
-
-	assert(#tmp == 10, 'range() is incorrect')
-end
-
-_G.range = range
-
--- {{{ squote()
+-- {{{ string.squote()
 
 -- single-quote a string and escape single-quotes in that string
 local squote =
@@ -215,51 +134,37 @@ local squote =
 		return [[']] .. sgsub(tos(s), [[']], [[\']]) .. [[']]
 	end
 
+string.squote = squote
+
 -- }}}
 
-assert(squote([[derp'test]]) == [['derp\'test']], 'squote() is incorrect')
-
-_G.string.squote = squote
-
--- {{{ count_matches()
+-- {{{ string.count_matches()
 
 -- Use string.gsub() for match counting (example: helpers.count_matches('aaaa', 'a') -> 4
-local count_matches = nil -- forward-declaration
+local count_matches =
+	function (self, pattern)
+		return select(2, sgsub(self, pattern, '%0'))
+	end
 
-do
-	count_matches =
-		function (self, pattern)
-			return select(2, sgsub(self, pattern, '%0'))
-		end
-end
+string.count_matches = count_matches
 
 -- }}}
 
-assert(count_matches('aaaa', 'a') == 4)
+-- {{{ getmetatable('').__mod() (str_mod())
 
-_G.string.count_matches = count_matches
-
--- {{{ str_mod()
 local str_mod =
 	function (fmt, args)
 		return sformat(fmt, unpack(type(args) == 'table' and args or { args }))
 	end
 
--- }}}
-
-do
-	local err_msg = 'str_mod() is incorrect'
-
-	assert(str_mod('1st %s',  'test')        == '1st test', err_msg)
-	assert(str_mod('%dnd %s', { 2, 'test' }) == '2nd test', err_msg)
-end
-
 getmeta('').__mod = str_mod
 
--- {{{ num_each()
+-- }}}
+
+-- {{{ getmetatable(0).each() (num_each())
 
 -- make numbers a little more interesting:
--- (5):times(print)
+-- (5):each(print)
 local num_each =
 	function (self, f, ...)
 		for i = 1, self do f(i, ...) end
@@ -267,32 +172,18 @@ local num_each =
 
 -- }}}
 
-do
-	local x = 0
-
-	num_each(3, function (y) x = x + y end)
-
-	assert(x == 6, 'num_each() is incorrect')
-end
-
--- {{{ num_times()
+-- {{{ getmetatable(0).times() (times())
 
 -- like :each() but doesn't provide the current
 -- number as the first arg on each iteration
 local num_times =
 	function (self, f, ...)
-		for i = 1, self do f(...) end
+		-- arg shaving :D
+		num_each(self, function (_, ...) return f(...) end, ...)
+--		for i = 1, self do f(...) end
 	end
 
 -- }}}
-
-do
-	local x = 0
-
-	num_times(6, function () x = x + 1 end)
-
-	assert(x == 6, 'num_times() is incorrect')
-end
 
 do
 	local tmp = {}
@@ -304,7 +195,7 @@ do
 	dsetmeta(0, tmp)
 end
 
--- {{{ func_chain()
+-- {{{ getmetatable(function () end).chain() (func_chain())
 
 local func_chain =
 	function (self)
@@ -315,13 +206,7 @@ local func_chain =
 
 -- }}}
 
-do
-	local tmp = { 1, 2, 3 }
-
-	assert(func_chain(function () end)(tmp) == tmp, 'func_chain() is incorrect')
-end
-
--- {{{ func_wrap()
+-- {{{ getmetatable(function () end).wrap() (func_wrap())
 
 local func_wrap =
 	function (self, outer)
@@ -334,12 +219,16 @@ local func_wrap =
 -- }}}
 
 do
-	local tmp = function (x) return x + 1 end
+	local tmp   = {}
 
-	assert(func_wrap(tmp, tmp)(4) == 6, 'func_wrap() is incorrect')
+	tmp.__index     = tmp
+	tmp.chain       = func_chain
+	tmp.wrap        = func_wrap
+
+	dsetmeta(function () end, tmp)
 end
 
--- {{{ tmerge()
+-- {{{ table.merge()
 
 -- sequence portion of the 2nd table is inserted
 -- after the sequence portion of the 1st table
@@ -361,22 +250,11 @@ local tmerge =
         return self
     end
 
+table.merge = tmerge
+
 -- }}}
 
-do
-	local tmp = { 1, 2, 3 }
-	local err_msg = 'tmerge() is incorrect'
-
-	tmp = tmerge(tmp, { 4, 5, 6 })
-
-	for i = 1, #tmp do
-		assert(tmp[i] == i, err_msg)
-	end
-end
-
-_G.table.merge = tmerge
-
--- {{{ tis_empty()
+-- {{{ table.is_empty()
 
 -- Use this instead of #(some_table) ~= 0
 -- fetching the length is much more expensive than
@@ -386,16 +264,13 @@ local tis_empty =
 		return next(self) == nil
 	end
 
+table.is_empty = tis_empty
+
 -- }}}
 
-assert(tis_empty({}))
-assert(not tis_empty({ 'something' }))
+-- {{{ to_sequence() -- accepts an iterator and its args (if it has any), returns a sequence of collected values
 
-_G.table.is_empty = tis_empty
-
--- {{{ func_to_sequence() -- accepts an iterator, returns a sequence of collected values
-
-local func_to_sequence =
+to_sequence =
 	function (i, i_self, ...)
 		local seq, ret = {}, { ... }
 
@@ -418,41 +293,16 @@ local func_to_sequence =
 
 -- }}}
 
-do
-	local err_msg = 'func_to_sequence() is incorrect'
+-- {{{ table.sort() (tsort())
 
-	assert(func_to_sequence(ipairs({ 1, 2, 3, 4, 5 }))[5] == 5, err_msg)
-	assert(func_to_sequence(range(5))[5]                  == 5, err_msg)
-end
+-- I feel sexy.
+local tsort = table.sort:chain()
 
-do
-	local tmp   = {}
-
-	tmp.__index     = tmp
-	tmp.chain       = func_chain
-	tmp.wrap        = func_wrap
-	tmp.to_sequence = func_to_sequence
-
-	dsetmeta(function () end, tmp)
-end
-
--- {{{ tsort()
-
-local tsort = nil -- forward declaration
-
-do
-	local orig_tsort = table.sort
-
-	tsort = func_chain(orig_tsort)
-end
+table.sort = tsort
 
 -- }}}
 
-assert(tsort({ 'c', 'a', 'b' })[2] == 'b')
-
-_G.table.sort = tsort
-
--- {{{ tcopy()
+-- {{{ table.copy() (tcopy())
 
 -- makes a copy of the table (a shallow copy)
 -- also makes a shallow copy if the original table's metatable (if available)
@@ -480,22 +330,11 @@ tcopy =
 		return ret
 	end
 
+table.copy = tcopy
+
 -- }}}
 
-do
-	local tmp_mt = { 1, 2, 3 }
-	local tmp    = setmeta({ 1, 2, 3 }, tmp_mt)
-
-	assert(tcopy(tmp) ~= tmp)
-	assert(tcopy(tmp)[2] == 2)
-
-	assert(getmeta(tcopy(tmp)) ~= tmp_mt)
-	assert(getmeta(tcopy(tmp))[2] == 2)
-end
-
-_G.table.copy = tcopy
-
---  {{{ tdeep_copy()
+--  {{{ table.deep_copy() (tdeep_copy())
 
 -- deep copy a table: copy the nested tables
 -- this probably shouldn't be recursive. :x
@@ -526,63 +365,32 @@ tdeep_copy =
 		return ret
 	end
 
+table.deep_copy = tdeep_copy
+
 -- }}}
 
-do
-	local a = setmeta({ test = 'test' }, { test2 = { test3 = 'test' } })
-	local b = tdeep_copy(a)
-
-	local err_msg = 'tdeep_copy() is incorrect'
-	
-	assert(a ~= b, err_msg) assert(a.test == b.test, err_msg)
-
-	do
-		local a_mt, b_mt = getmeta(a), getmeta(b)
-
-		assert(a_mt ~= b_mt,                         err_msg)
-		assert(a_mt.test2       ~= b_mt.test2,       err_msg)
-		assert(a_mt.test2.test3 == b_mt.test2.test3, err_msg)
-	end
-end
-
-_G.table.deep_copy = tdeep_copy
-
--- {{{ treverse()
+-- {{{ table.reverse() (treverse())
 
 -- works with the sequence part of the table only
-local treverse = nil -- forward declaration
+local treverse =
+	function (self)
+		local len = #self
 
-do
-	local mfloor = math.floor
-
-	treverse =
-		function (self)
-			local len = #self
-
-			-- we don't actually need math.floor(len / 2)
-			-- since we step by 1
-			for i = 1, len / 2 do
-				self[i], self[len] = self[len], self[i]
-				len = len - 1
-			end
-
-			return self
+		-- we don't actually need math.floor(len / 2)
+		-- since we step by 1
+		for i = 1, len / 2 do
+			self[i], self[len] = self[len], self[i]
+			len = len - 1
 		end
-end
+
+		return self
+	end
+
+table.reverse = treverse
 
 -- }}}
 
-do
-	local tmp = { 1, 2, 3 }
-	
-	treverse(tmp)
-
-	assert(tmp[1] == 3 and tmp[3] == 1, 'treverse() is incorrect')
-end
-
-_G.table.reverse = treverse
-
--- {{{ tmap()
+-- {{{ table.map() (tmap())
 
 -- works on the sequence part of the table
 -- IT IS NOT MAP()'S JOB TO COLLECT RETURN VALUES
@@ -596,19 +404,11 @@ local tmap =
 		return self
 	end
 
+table.map = tmap
+
 -- }}}
 
-do
-	local sum = 0
-
-	tmap({ 1, 2, 3 }, function (x) sum = sum + x end)
-
-	assert(sum == 6, 'tmap() is incorrect')
-end
-
-_G.table.map = tmap
-
--- {{{ timap()
+-- {{{ table.imap() (timap())
 
 -- operates on the sequence part of the table only
 -- inplace map(), return values of f take the place of their elements
@@ -629,14 +429,11 @@ local timap =
 		return self
 	end
 
+table.imap = timap
+
 -- }}}
 
-assert(timap({ 1, 2, 3 }, function (x) return x ~= 2 and x or nil end)[2] == 3)
-assert(timap({ 1, 2, 3 }, tos)[2] == '2')
-
-_G.table.imap = timap
-
--- {{{ tinject()
+-- {{{ table.inject() (tinject())
 
 local tinject =
     function (self, f, ...)
@@ -649,14 +446,11 @@ local tinject =
         return unpack(args)
     end
 
+table.inject = tinject
+
 -- }}}
 
-assert(tinject({ 1, 2, 3 }, function (x, y) return x + y        end, 0) == 6)
-assert(tinject({ 1, 2, 3 }, function (x, y) return x + (y or 0) end)    == 6)
-
-_G.table.inject = tinject
-
--- {{{ treduce()
+-- {{{ table.reduce() (treduce())
 
 -- accepts a table, a binary function, and (optionally) 1 initial argument
 local treduce =
@@ -666,15 +460,17 @@ local treduce =
 		return tinject(self, function (x, y) return f(x, y) end, (...))
 	end
 
+table.reduce = treduce
+
 -- }}}
 
-assert(treduce({ 1, 2, 3 }, function (x, y) return x + (y or 0) end) == 6)
+-- {{{ table.brigade (tbrigade())
 
-_G.table.reduce = treduce
+-- table.brigade() is really just a reverse table.map() where each element of the table
+-- passed is being called, instead of a function being provided to the table.map() directly
+-- table.brigade({ print,         print,         print         }, 'hello world') -- the difference
+--     table.map({ 'hello world', 'hello world', 'hello world' }, print        ) -- these do the same thing though
 
--- {{{ tbrigade()
-
--- takes a list of functions and the args to provide to them
 local tbrigade =
 	function (self, ...)
 		-- use the value itself as the function to call in table.map()
@@ -683,21 +479,12 @@ local tbrigade =
 
 local txmap = tbrigade
 
+table.brigade = tbrigade
+table.xmap    = txmap
+
 -- }}}
 
-do
-	local x = 0
-	local tmp = function (y) x = x + y end
-
-	tbrigade({ tmp, tmp, tmp, tmp }, 1)
-
-	assert(x == 4, 'tbrigade() is incorrect')
-end
-
-_G.table.brigade = tbrigade
-_G.table.xmap    = txmap
-
--- {{{ tjoin()
+-- {{{ table.join() (tjoin())
 
 -- A table.join() that respects __tostring metamethods on the table elements it's joining.
 local tjoin =
@@ -705,16 +492,13 @@ local tjoin =
 		return tcat(timap(tcopy(self), tos), ...)
 	end
 
+table.join = tjoin
+
 -- }}}
 
-assert(tjoin({ 1, 2, 3 }, ',') == '1,2,3')
-assert(pcall(tjoin, {}, '', -1, 1) == false) -- this should fail, invalid range
+-- {{{ table.clear() (tclear())
 
-_G.table.join = tjoin
-
--- {{{ tclear()
-
--- Clear an existing table.
+-- Clear an existing table. (DO NOT CREATE A NEW TABLE)
 local tclear =
 	function (self)
 		for k in pairs(self) do
@@ -724,13 +508,11 @@ local tclear =
 		return self
 	end
 
+table.clear = tclear
+
 -- }}}
 
-assert(tis_empty(tclear({ 1, 2, 3 })))
-
-_G.table.clear = tclear
-
--- {{{ tkeys()
+-- {{{ table.keys() (tkeys())
 
 local tkeys =
 	function (self)
@@ -746,13 +528,11 @@ local tkeys =
 		return self
 	end
 
+table.keys = tkeys
+
 -- }}}
 
-assert(tkeys({ a = 1 })[1] == 'a')
-
-_G.table.keys = tkeys
-
--- {{{ tvalues()
+-- {{{ table.values() (tvalues())
 
 local tvalues =
 	function (self)
@@ -768,13 +548,11 @@ local tvalues =
 		return self
 	end
 
+table.values = tvalues
+
 -- }}}
 
-assert(tvalues({ 'a' })[1] == 'a')
-
-_G.table.values = tvalues
-
--- {{{ tcompress()
+-- {{{ table.compress (tcompress())
 
 -- squish down the numeric-key parts of the table
 local tcompress =
@@ -801,15 +579,12 @@ local tcompress =
 
 		return self
 	end
+
+table.compress = tcompress
 				
 -- }}}
 
-assert(#(tcompress({ [1] = 'cat', [3] = 'dog', [5] = 'horse' }))   == 3)
-assert(  tcompress({ [1] = 'cat', [3] = 'dog', [5] = 'horse' })[2] == 'dog')
-
-_G.table.compress = tcompress
-
--- {{{ tremove_if()
+-- {{{ table.remove_if() (tremove_if())
 
 -- Pass a table (doesn't have to be an array), with a function, the function is
 -- called on each value (pairs()) and the pair is removed if f(value) returns true
@@ -829,15 +604,11 @@ local tremove_if =
 		return self
 	end
 
+table.remove_if = tremove_if
+
 -- }}}
 
--- 2 gets removed as it proves true for being an even value, 3 should be shifted down
-assert(tremove_if({ 1, 2, 3 }, function (x) return x % 2 == 0 end)[2] == 3)
-assert(tremove_if({ derp = '' }, function (x) return type(x) == 'string' end)['derp'] == nil)
-
-_G.table.remove_if = tremove_if
-
--- {{{ ttranspose()
+-- {{{ table.transpose() (ttranspose())
 
 local ttranspose =
 	function (self)
@@ -853,18 +624,16 @@ local ttranspose =
 		return self
 	end
 
+table.transpose = ttranspose
+
 -- }}}
-
-assert(ttranspose({ 'cat' })['cat'] == 1)
-
-_G.table.transpose = ttranspose
 
 -- {{{ is_callable()
 
 -- lua doesn't allow for:
 -- (setmetatable({}, { __call = setmetatable({}, { __call = function () return 4 end }) }))() -- no chaining __call()'s :'(
 -- as a result, is_callable() is much simpler, but used to be incredibly clever. :'(
-local is_callable =
+is_callable =
 	function (what)
 		if type(what) == 'function' then
 			return true
@@ -881,32 +650,11 @@ local is_callable =
 
 -- }}}
 
-do
-	local err_msg = 'is_callable() is incorrect'
-
-	assert(function () end, err_msg)
-	assert(is_callable(setmeta({}, { __call = function () end }), err_msg))
-	assert(not is_callable(setmeta({}, { __call = 4 })), err_msg)
-	assert(not is_callable(4), err_msg)
-
-	do
-		local a, b = {}, {}
-
-		-- circularity -- maybe circuhilarity? :o)
-		setmeta(a, { __call = b })
-		setmeta(b, { __call = a })
-
-		assert(not is_callable(a), err_msg)
-	end
-end
-
-_G.is_callable = is_callable
-
 -- {{{ valof()
 
 -- call `what' if it is callable until it is not
 -- great for chained functions
-local valof =
+valof =
 	function (what)
 		while is_callable(what) do
 			what = what()
@@ -917,30 +665,16 @@ local valof =
 
 -- }}}
 
-assert(valof(4)                                               == 4)
-assert(valof(function () return 4 end)                        == 4)
-assert(valof(function () return function () return 4 end end) == 4)
-
-_G.valof = valof
-
 -- {{{ lit() & identity() (same function)
 
 -- lit(something) returns something exactly as it was passed
 -- lit() -> literal, you wouldn't imagine how useful this is
 
-local lit =
+lit =
 	function (what)
 		return what
 	end
 
-local identity = lit
+identity = lit
 
 -- }}}
-
--- hahaha
-assert(rawequal(lit(4), 4))
-
-_G.lit      = lit
-_G.identity = identity
-
-return _M
