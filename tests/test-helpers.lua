@@ -140,9 +140,9 @@ test_table_is_empty =
 		assert_false(table.is_empty({ 'something' }))
 	end
 
-test_table_to_sequence =
+test_table_to_table =
 	function ()
-		local tmp = to_sequence(ipairs({ 1, 2, 3, 4, 5 }))
+		local tmp = to_table(ipairs({ 1, 2, 3, 4, 5 }))
 
 		assert_table(tmp)
 		assert_equal(5, #tmp)
@@ -264,19 +264,19 @@ test_table_keys =
 		assert_equal('a', tmp[1])
 	end
 
-test_table_values =
+test_table_vals =
 	function ()
 		-- intended for unsequenced tables (otherwise you could unpack())
-		local tmp = table.values({ a = 'b' })
+		local tmp = table.vals({ a = 'b' })
 
 		assert_table(tmp)
 		assert_nil(tmp.a)
 		assert_equal('b', tmp[1])
 	end
 
-test_table_compress =
+test_table_compact =
 	function ()
-		local tmp = table.compress({ [1] = 'cat', [3] = 'dog', [5] = 'horse' })
+		local tmp = table.compact({ [1] = 'cat', [33] = 'dog', [509] = 'horse' })
 		
 		assert_equal(3, #tmp)
 		assert_equal('dog', tmp[2])
@@ -286,13 +286,7 @@ test_table_remove_if =
 	function ()
 		-- 2 gets removed as it proves true for being an even value, 3 should be shifted down
 		assert_equal(3, table.remove_if({ 1, 2, 3 }, function (x) return x % 2 == 0 end)[2])
-		assert_nil(table.remove_if({ derp = '' }, function (x) return type(x) == 'string' end)['derp'])
-	end
-
-test_table_transpose =
-	function ()
-		-- reverse swap keys and values
-		assert_equal(1, table.transpose({ 'cat' })['cat'])
+		assert_nil(table.remove_if({ 'derp' }, function (x) return type(x) == 'string' end)[1])
 	end
 
 test_table_stripe =

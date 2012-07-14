@@ -13,6 +13,7 @@ local setmeta  = setmetatable -- can only use on tables
 local dsetmeta = debug.setmetatable
 local tcat     = table.concat
 local tins     = table.insert
+local trem     = table.remove
 
 ---- debug-related
 local dgetinfo = debug.getinfo
@@ -268,27 +269,20 @@ table.is_empty = tis_empty
 
 -- }}}
 
--- {{{ to_sequence() -- accepts an iterator and its args (if it has any), returns a sequence of collected values
+-- {{{ to_table() -- returns a table of the collected values from the args returned by a generator
 
-to_sequence =
-	function (i, i_self, ...)
-		local seq, ret = {}, { ... }
+-- example: to_table(ipairs({ 'a', 'b', 'c' }))
+-- this is not redundant, believe me ^
 
-		while true do
-			-- debug: print(i, i_self, unpack(ret))
+to_table =
+	function (...)
+		local ret = {}
 
-			ret = { i(i_self, unpack(ret)) }
-
-			-- iterators signify their
-			-- end with the first return
-			if ret[1] == nil then
-				break
-			end
-
-			seq[ret[1]] = ret[2]
+		for k, v in ... do
+			ret[k] = v
 		end
 
-		return seq
+		return ret
 	end
 
 -- }}}
@@ -334,7 +328,7 @@ table.copy = tcopy
 
 -- }}}
 
---  {{{ table.deep_copy() (tdeep_copy())
+-- {{{ table.deep_copy() (tdeep_copy())
 
 -- deep copy a table: copy the nested tables
 -- this probably shouldn't be recursive. :x
@@ -516,90 +510,67 @@ table.clear = tclear
 
 local tkeys =
 	function (self)
-		local tmp, x = tcopy(self), 0
+		local ret, x = {}, 0
 
-		tclear(self)
-
-		for k in pairs(tmp) do
+		for k in pairs(self) do
 			x = x + 1
-			rawset(self, x, k)
+			ret[x] = k
 		end
 
-		return self
+		return ret
 	end
 
 table.keys = tkeys
 
 -- }}}
 
--- {{{ table.values() (tvalues())
+-- {{{ table.vals() (tvals())
 
-local tvalues =
+local tvals =
 	function (self)
-		local tmp, x = tcopy(self), 0
+		local ret, x = {}, 0
 
-		tclear(self)
-
-		for k in pairs(tmp) do
+		for _, v in pairs(self) do
 			x = x + 1
-			rawset(self, x, rawget(tmp, k))
+			ret[x] = v
 		end
 
-		return self
+		return ret
 	end
 
-table.values = tvalues
+table.vals = tvals
 
 -- }}}
 
--- {{{ table.compress (tcompress())
+-- {{{ table.maxn() (tmaxn()) -- get highest numeric key, not the same as the length operator
 
--- squish down the numeric-key parts of the table
-local tcompress =
+local tmaxn =
 	function (self)
-		local keys, x = {}, 0
-		local vals = {}
-		
+		local tmp = nil
+
 		for k in pairs(self) do
-			if type(k) == 'number' then
-				x = x + 1
-				keys[x]  = k
-				vals[k] = rawget(self, k)
-				rawset(self, k, nil)
+			if type(k) == 'number' and (tmp == nil or k > tmp) then
+				tmp = k
 			end
 		end
 
-		tsort(keys)
-
-		x = 0
-
-		for i, k in ipairs(keys) do
-			rawset(self, i, vals[k])
-		end
-
-		return self
+		return tmp
 	end
 
-table.compress = tcompress
-				
+table.maxn = tmaxn
+		
 -- }}}
 
--- {{{ table.remove_if() (tremove_if())
+-- {{{ table.remove_if() (tremove_if()) -- in-place removal of elements if they fail the predicate
 
--- Pass a table (doesn't have to be an array), with a function, the function is
--- called on each value (pairs()) and the pair is removed if f(value) returns true
--- if the f(value) returns true and is in the sequence part, table.remove() is used to shift remaining elements down
 local tremove_if =
 	function (self, f, ...)
-		local tmp = tkeys(tcopy(self))
-
-		for k in pairs(self) do
-			if f(rawget(self, k)) then
-				rawset(self, k, nil)
+		-- iterate backward for removals
+		for i = #self, 1, -1 do
+			if f(self[i], ...) then
+				trem(self, i) -- implicit table.compact()
 			end
 		end
-
-		tcompress(self)
 
 		return self
 	end
@@ -608,23 +579,44 @@ table.remove_if = tremove_if
 
 -- }}}
 
--- {{{ table.transpose() (ttranspose())
+-- {{{ table.filter() (tfilter()) -- create a new table from those that succeed the predicate
 
-local ttranspose =
-	function (self)
-		local tmp = tcopy(self)
+local tfilter =
+	function (self, f, ...)
+		local ret, x = {}, 0
 
-		tclear(self)
-
-		for k in pairs(tmp) do
-			-- key, value = value, key
-			rawset(self, rawget(tmp, k), k)
+		for _, v in ipairs(self) do
+			if f(v, ...) then
+				x = x + 1
+				ret[x] = v
+			end
 		end
 
-		return self
+		return ret
 	end
 
-table.transpose = ttranspose
+table.filter = tfilter
+
+-- }}}
+
+-- {{{ table.compact() (tcompact())
+
+-- create a new table with the numeric keys and associated values 'compacted' down into a constiguous sequence
+
+local tcompact =
+	function (self)
+		local keys   = tfilter(tkeys(self), function (x) return type(x) == 'number' end)
+		local ret, x = {}, 0
+
+		for _, k in ipairs(keys) do
+			x = x + 1
+			ret[x] = self[k]
+		end
+
+		return ret
+	end
+
+table.compact = tcompact
 
 -- }}}
 
