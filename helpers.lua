@@ -22,6 +22,10 @@ local dgetinfo = debug.getinfo
 local pairs  = pairs
 local ipairs = ipairs
 
+-- coroutine-related
+local cwrap  = coroutine.wrap
+local cyield = coroutine.yield
+
 ---- file-related
 local ioutput = io.output
 
@@ -229,7 +233,28 @@ do
 	dsetmeta(function () end, tmp)
 end
 
--- {{{ table.merge()
+-- {{{ table.each()/table.reach() (teach()/treach()) -- ITERATORS
+
+-- example: table.each({ 'a', 'b', 'c' }, print)
+local  teach = function (t, f, ...) for i =  1, #t     do f(t[i], i, ...) end end
+local treach = function (t, f, ...) for i = #t,  1, -1 do f(t[i], i, ...) end end
+
+table.each  = teach
+table.reach = treach
+
+-- }}}
+
+-- {{{ each()/reach() -- generators for table.each()/table.reach() iterators
+
+-- TODO: polymorphic each()/reach() that can generate iterators of number ranges and string splits
+
+-- example: for v, i in each({ 'a', 'b', 'c' }) do print(v, i) end
+each  = function (t) return cwrap( teach), t, cyield end
+reach = function (t) return cwrap(treach), t, cyield end
+
+-- }}}
+
+-- {{{ table.merge() (tmerge())
 
 -- sequence portion of the 2nd table is inserted
 -- after the sequence portion of the 1st table
@@ -255,7 +280,7 @@ table.merge = tmerge
 
 -- }}}
 
--- {{{ table.is_empty()
+-- {{{ table.is_empty() (tis_empty())
 
 -- Use this instead of #(some_table) ~= 0
 -- fetching the length is much more expensive than
