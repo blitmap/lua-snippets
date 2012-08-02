@@ -1,3 +1,5 @@
+#!/usr/bin/env lua
+
 local cwrap  = coroutine.wrap
 local cyield = coroutine.yield
 
