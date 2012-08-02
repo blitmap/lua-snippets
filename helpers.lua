@@ -2,6 +2,7 @@
 
 ---- string-related
 local sgsub   = string.gsub
+local sfind   = string.find
 local smatch  = string.match
 local sformat = string.format
 local tos     = tostring
@@ -14,6 +15,8 @@ local dsetmeta = debug.setmetatable
 local tcat     = table.concat
 local tins     = table.insert
 local trem     = table.remove
+local rget     = rawget
+local rset     = rawset
 
 ---- debug-related
 local dgetinfo = debug.getinfo
@@ -68,23 +71,17 @@ printf =
 
 -- {{{ fprintln()
 
--- pass any number of strings and this will terminate them when written to the file handle
--- collects the returned values from fh:write() in a table for each arg passed, which is in another table that gets returned
--- this might be slow with lots of args
 fprintln =
 	function (fh, ...)
-		local ret = { true }
+		for v in each({ ... }) do
+			local s, e = fh:write(v, '\r\n')
 
-		-- the point of this loop is to avoid simply doing a table.concat()
-		-- which would create a large string to *then* write to the file
-		for _, v in ipairs({ ... }) do
-			ret = { fh:write(v, '\r\n') }
-
-			-- something went wrong writing to fh
-			if ret[1] ~= true then break end
+			if not s then
+				return s, e
+			end
 		end
 
-		return unpack(ret)
+		return true
 	end
 
 -- }}}
@@ -233,64 +230,36 @@ do
 	dsetmeta(function () end, tmp)
 end
 
--- {{{ table.each()/table.reach() (teach()/treach()) -- ITERATORS
+-- {{{ each(),reach(),every(),pairs(),ipairs() -- iterator/generator functions
 
--- example: table.each({ 'a', 'b', 'c' }, print)
-local  teach = function (t, f, ...) for i =  1, #t     do f(t[i], i, ...) end end
-local treach = function (t, f, ...) for i = #t,  1, -1 do f(t[i], i, ...) end end
+-- iterators
+local   _each = function (t, f, ...) for i =  1, #t        do f(t[i], i, ...) end end -- all 3 are value-first, key 2nd
+local  _reach = function (t, f, ...) for i = #t,  1, -1    do f(t[i], i, ...) end end 
+local  _every = function (t, f, ...) for k, v in  pairs(t) do f(v,    k, ...) end end 
 
-table.each  = teach
-table.reach = treach
-
--- }}}
-
--- {{{ each()/reach() -- generators for table.each()/table.reach() iterators
-
+-- these public-facing functions either generate an iterator or iterate if a function and args are passed
 -- TODO: polymorphic each()/reach() that can generate iterators of number ranges and string splits
+each  = function (t, ...) if ... ~= nil then  _each(t, ...) return t end return cwrap( _each), t, cyield end
+reach = function (t, ...) if ... ~= nil then _reach(t, ...) return t end return cwrap(_reach), t, cyield end
+every = function (t, ...) if ... ~= nil then _every(t, ...) return t end return cwrap(_every), t, cyield end
 
--- example: for v, i in each({ 'a', 'b', 'c' }) do print(v, i) end
-each  = function (t) return cwrap( teach), t, cyield end
-reach = function (t) return cwrap(treach), t, cyield end
+-- localise our globals
+local each  = each
+local reach = reach
+local every = every
 
--- }}}
+-- make pairs/ipairs generators also act as directly started iterators if a function and args are passed
+do
+	local orig_pairs  = pairs
+	local orig_ipairs = ipairs
 
--- {{{ table.merge() (tmerge())
+	pairs  = function (t, f, ...) if f ~= nil then for k, v in orig_pairs(t)  do f(k, v, ...) end return t end return orig_pairs(t)  end
+	ipairs = function (t, f, ...) if f ~= nil then for k, v in orig_ipairs(t) do f(k, v, ...) end return t end return orig_ipairs(t) end
 
--- sequence portion of the 2nd table is inserted
--- after the sequence portion of the 1st table
--- hash values are "overlaid" from the 2nd table to the 1st
--- oriented for:
---	local some_table = setmetatable({ 1, 2, 3 }, { __index = table })
---	some_table:merge({ 4, 5, 6 }))
-local tmerge =
-    function (self, merge_me)
-        assert(type(self)     == 'table') -- assert() is more helpful if you
-        assert(type(merge_me) == 'table') -- only test one condition at a time
-
-		local len = #self
-
-		for k, v in pairs(merge_me) do
-			self[type(k) == 'number' and len + k or k] = v
-		end
-
-        return self
-    end
-
-table.merge = tmerge
-
--- }}}
-
--- {{{ table.is_empty() (tis_empty())
-
--- Use this instead of #(some_table) ~= 0
--- fetching the length is much more expensive than
--- seeing if it has an initial index to iterate with
-local tis_empty =
-	function (self)
-		return next(self) == nil
-	end
-
-table.is_empty = tis_empty
+	-- globalise our locals (see top)
+	_G.pairs  = pairs
+	_G.ipairs = ipairs
+end
 
 -- }}}
 
@@ -312,6 +281,56 @@ to_table =
 
 -- }}}
 
+-- {{{ table.is_empty() (tis_empty())
+
+-- Use this instead of #(some_table) ~= 0
+-- fetching the length is much more expensive than
+-- seeing if it has an initial index to iterate with
+local tis_empty =
+	function (self)
+		return next(self) == nil
+	end
+
+table.is_empty = tis_empty
+
+-- }}}
+
+-- {{{ table.append() (tappend())
+
+local tappend =
+	function (t, ...)
+		-- for each table
+		for t2 in each({ ... }) do
+			-- insert each element
+			for v in each(t2) do
+				tins(t, v)
+			end
+		end
+
+		return t
+	end
+
+table.append = tappend
+
+-- }}}
+
+-- {{{ table.prepend() (tprepend())
+
+local tprepend =
+	function (t, ...)
+		for t2 in reach({ ... }) do
+			for v in reach(t2) do
+				tins(t, 1, v)
+			end
+		end
+
+		return t
+	end
+
+table.prepend = tprepend
+
+-- }}}
+
 -- {{{ table.sort() (tsort())
 
 -- I feel sexy.
@@ -326,65 +345,35 @@ table.sort = tsort
 -- makes a copy of the table (a shallow copy)
 -- also makes a shallow copy if the original table's metatable (if available)
 local tcopy = nil -- forward declaration
+do
+	-- dummy func that fetches values while respecting metamethods (no rawget)
+	local mget = function (s, k) return s[k] end
 
-tcopy =
-	function (self)
-		local ret = {}
+	tcopy =
+		function (self, mode)
+			local tmode = type(mode)
+			local ret = {}
 
-		-- Even though we copy a potential metatable after this, we're using
-		-- rawset() on ret (just in case) the ordering of this changes later
-		for k in pairs(self) do rawset(ret, k, rawget(self, k)) end
+			local get = tmode == 'string' and sfind(mode, 'r') and rget or mget
 
-		do
-			local tmp = getmeta(self)
-
-			if tmp ~= nil then
-				tmp = tcopy(tmp)
+			for k in pairs(self) do
+				ret[k] = get(self, k)
 			end
 
-			-- sets a metatable if it's available
-			setmeta(ret, tmp)
-		end
+			if tmode == 'string' and sfind(mode, 'm') then
+				local tmp = getmeta(self)
 
-		return ret
-	end
+				tmp = tmp and tcopy(tmp, 'rm') or nil
+
+				-- sets a metatable if it's available
+				setmeta(ret, tmp)
+			end
+
+			return ret
+		end
+end
 
 table.copy = tcopy
-
--- }}}
-
--- {{{ table.deep_copy() (tdeep_copy())
-
--- deep copy a table: copy the nested tables
--- this probably shouldn't be recursive. :x
-local tdeep_copy = nil -- forward declaration
-
-tdeep_copy =
-	function (self)
-		local ret = {}
-
-		-- Even though we copy a potential metatable after this, we're using
-		-- rawset() on ret (just in case) the ordering of this changes later
-		for k in pairs(self) do
-			local v = rawget(self, k)
-			rawset(ret, k, type(v) == 'table' and tdeep_copy(v) or v)
-		end
-
-		do
-			local tmp = getmeta(self)
-
-			if tmp ~= nil then
-				tmp = tdeep_copy(tmp)
-			end
-
-			-- sets a metatable if it's available
-			setmeta(ret, tmp)
-		end
-
-		return ret
-	end
-
-table.deep_copy = tdeep_copy
 
 -- }}}
 
@@ -411,44 +400,22 @@ table.reverse = treverse
 
 -- {{{ table.map() (tmap())
 
--- works on the sequence part of the table
--- IT IS NOT MAP()'S JOB TO COLLECT RETURN VALUES
--- you can provide a list of arguments to supply to the function (after) the value
 local tmap =
 	function (self, f, ...)
-		for i = 1, #self do
-			f(self[i], ...)
-		end
+		local ret = {}
 
-		return self
-	end
-
-table.map = tmap
-
--- }}}
-
--- {{{ table.imap() (timap())
-
--- operates on the sequence part of the table only
--- inplace map(), return values of f take the place of their elements
--- elements are shifted down, nil returns are discarded
-local timap =
-	function (self, f, ...)
-		local x = 0
-
-		for i = 1, #self do
-			local tmp = f(self[i], ...)
+		for v, i in each(self) do
+			local tmp = f(v, i, ...)
 
 			if tmp ~= nil then
-				x = x + 1
-				self[x] = tmp
+				tins(ret, tmp)
 			end
 		end
 
-		return self
+		return ret
 	end
 
-table.imap = timap
+table.map = tmap
 
 -- }}}
 
@@ -483,32 +450,12 @@ table.reduce = treduce
 
 -- }}}
 
--- {{{ table.brigade (tbrigade())
-
--- table.brigade() is really just a reverse table.map() where each element of the table
--- passed is being called, instead of a function being provided to the table.map() directly
--- table.brigade({ print,         print,         print         }, 'hello world') -- the difference
---     table.map({ 'hello world', 'hello world', 'hello world' }, print        ) -- these do the same thing though
-
-local tbrigade =
-	function (self, ...)
-		-- use the value itself as the function to call in table.map()
-		tmap(self, function (func, ...) func(...) end, ...)
-	end
-
-local txmap = tbrigade
-
-table.brigade = tbrigade
-table.xmap    = txmap
-
--- }}}
-
 -- {{{ table.join() (tjoin())
 
 -- A table.join() that respects __tostring metamethods on the table elements it's joining.
 local tjoin =
 	function (self, ...)
-		return tcat(timap(tcopy(self), tos), ...)
+		return tcat(tmap(tcopy(self), tos), ...)
 	end
 
 table.join = tjoin
@@ -521,7 +468,7 @@ table.join = tjoin
 local tclear =
 	function (self)
 		for k in pairs(self) do
-			rawset(self, k, nil)
+			rset(self, k, nil)
 		end
 
 		return self
@@ -535,11 +482,10 @@ table.clear = tclear
 
 local tkeys =
 	function (self)
-		local ret, x = {}, 0
+		local ret = {}
 
 		for k in pairs(self) do
-			x = x + 1
-			ret[x] = k
+			tins(ret, k)
 		end
 
 		return ret
@@ -553,11 +499,10 @@ table.keys = tkeys
 
 local tvals =
 	function (self)
-		local ret, x = {}, 0
+		local ret = {}
 
-		for _, v in pairs(self) do
-			x = x + 1
-			ret[x] = v
+		for v in every(self) do
+			tins(ret, v)
 		end
 
 		return ret
@@ -591,9 +536,9 @@ table.maxn = tmaxn
 local tremove_if =
 	function (self, f, ...)
 		-- iterate backward for removals
-		for i = #self, 1, -1 do
-			if f(self[i], ...) then
-				trem(self, i) -- implicit table.compact()
+		for v, i in reach(self) do
+			if f(v, ...) then
+				trem(self, i) -- implicit table.compact() :-)
 			end
 		end
 
@@ -608,12 +553,11 @@ table.remove_if = tremove_if
 
 local tfilter =
 	function (self, f, ...)
-		local ret, x = {}, 0
+		local ret = {}
 
-		for _, v in ipairs(self) do
+		for v in each(self) do
 			if f(v, ...) then
-				x = x + 1
-				ret[x] = v
+				tins(ret, v)
 			end
 		end
 
@@ -630,12 +574,11 @@ table.filter = tfilter
 
 local tcompact =
 	function (self)
-		local keys   = tfilter(tkeys(self), function (x) return type(x) == 'number' end)
-		local ret, x = {}, 0
+		local keys = tfilter(tkeys(self), function (x) return type(x) == 'number' end)
+		local ret  = {}
 
-		for _, k in ipairs(keys) do
-			x = x + 1
-			ret[x] = self[k]
+		for k in each(keys) do
+			tins(ret, self[k])
 		end
 
 		return ret

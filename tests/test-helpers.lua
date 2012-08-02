@@ -1,9 +1,8 @@
-require('setup-test')
-
 module('helpers-testcase', lunit.testcase, package.seeall)
 
 setup =
 	function ()
+		require('setup-test')
 		require('helpers')
 	end
 
@@ -39,7 +38,7 @@ test_printf =
 		assert(io.output(old) == old)
 	end
 
-test_fprintln=
+test_fprintln =
 	function ()
 		local dev_null = assert(io.open('/dev/null', 'w'))
 
@@ -121,9 +120,22 @@ test_function_wrap =
 		assert_equal(6, tmp:wrap(tmp)(4))
 	end
 
-test_table_merge =
+test_table_append =
 	function ()
-		local tmp     = table.merge({ 1, 2, 3 }, { 4, 5, 6 })
+		local tmp     = table.append({ 1, 2, 3 }, { 4, 5, 6 })
+		local tmp_len = #tmp
+
+		assert_table(tmp)
+		assert_equal(6, tmp_len)
+
+		for i = 1, #tmp do
+			assert_equal(i, tmp[i])
+		end
+	end
+
+test_table_prepend =
+	function ()
+		local tmp     = table.prepend({ 4, 5, 6 }, { 1, 2, 3 })
 		local tmp_len = #tmp
 
 		assert_table(tmp)
@@ -163,7 +175,7 @@ test_table_copy =
 		local tmp_mt  = { 1, 2, 3 }
 		local tmp     = setmetatable({ 1, 2, 3 }, tmp_mt)
 
-		local copy    = table.copy(tmp)
+		local copy    = table.copy(tmp, 'rm')
 		local copy_mt = getmetatable(copy)
 
 		assert_table(copy)
@@ -173,23 +185,6 @@ test_table_copy =
 		assert_table(copy_mt)
 		assert_not_equal(tmp, copy_mt)
 		assert_equal(2, copy_mt[2])
-	end
-
-test_table_deep_copy =
-	function ()
-		local tmp_mt  = { test2 = { test3 = 'test' } }
-		local tmp     = setmetatable({ test = 'test' }, tmp_mt)
-		
-		local copy    = table.deep_copy(tmp)
-		local copy_mt = getmetatable(copy)
-
-		assert_table(copy)
-		assert_not_equal(tmp, copy)
-		assert_equal(tmp.test, copy.test)
-
-		assert_not_equal(tmp_mt,         copy_mt)
-		assert_not_equal(tmp_mt.test2,   copy_mt.test2)
-		assert_equal(tmp_mt.test2.test3, copy_mt.test2.test3)
 	end
 
 test_table_reverse =
@@ -211,12 +206,6 @@ test_table_map =
 		assert_equal(6, sum)
 	end
 
-test_table_imap =
-	function ()
-		assert_equal(3,             table.imap({ 1, 2, 3 }, function (x) return x ~= 2 and x or nil end)[2])
-		assert_equal('string', type(table.imap({ 1, 2, 3 }, tostring)[2]))
-	end
-
 test_table_inject =
 	function ()
 		assert_equal(6, table.inject({ 1, 2, 3 }, function (x, y) return x + (y or 0) end))
@@ -226,16 +215,6 @@ test_table_inject =
 test_table_reduce =
 	function ()
 		assert_equal(6, table.reduce({ 1, 2, 3 }, function (x, y) return x + (y or 0) end))
-	end
-
-test_table_brigade =
-	function ()
-		local x   = 0
-		local tmp = function (y) x = x + y end
-
-		table.brigade({ tmp, tmp, tmp, tmp }, 1)
-
-		assert_equal(4, x)
 	end
 
 test_table_join =

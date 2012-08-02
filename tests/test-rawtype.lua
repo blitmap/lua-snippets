@@ -1,9 +1,8 @@
-require('setup-test')
-
 module('rawtype-testcase', lunit.testcase, package.seeall)
 
 setup =
 	function ()
+		require('setup-test')
 		require('rawtype')
 
 		-- Testing four scenarios:

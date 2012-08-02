@@ -1,9 +1,8 @@
-require('setup-test')
-
 module('trim-testcase', lunit.testcase, package.seeall)
 
 setup =
 	function ()
+		require('setup-test')
 		require('string-interp')
 	end
 
