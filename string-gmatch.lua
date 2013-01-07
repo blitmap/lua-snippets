@@ -3,33 +3,18 @@
 local cwrap   = coroutine.wrap
 local cyield  = coroutine.yield
 
-local sgmatch = string.gmatch
-
-local orig_select = select
-
-select =
-	function (first, ...)
-		if first == '*' then
-			return orig_select('#', ...), ...
-		end
-
-		return orig_select(first, ...)
-	end
-
-
 local orig_sgmatch = string.gmatch
 
 string.gmatch =
-	function (s, m, ...)
-		local f       = orig_sgmatch(s, m)
-		local n, i, j = select('#', ...)
+	function (s, m, i, j)
+		local f = orig_sgmatch(s, m)
 
-		if n == 0 then
+		if i == nil then
 			return f
 		end
 
-		if n == 1 then
-			if type(...) == 'function' then
+		if j == nil then
+			if type(i) == 'function' then
 				while true do
 					local ret = { f() }
 
@@ -37,7 +22,7 @@ string.gmatch =
 						break
 					end
 
-					(...)(unpack(ret))
+					i(unpack(ret))
 				end
 
 				return -- Ash used an Escape Rope!
