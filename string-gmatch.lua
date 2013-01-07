@@ -14,7 +14,8 @@ string.gmatch =
 		end
 
 		if j == nil then
-			if type(i) == 'function' then
+			-- we assume not-a-number means `i' is callable
+			if type(i) ~= 'number' then
 				while true do
 					local ret = { f() }
 
