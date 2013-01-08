@@ -13,23 +13,49 @@ local println =
 	end
 
 -- iterators
-local   _each = function (t, f, ...) for i =  1, #t        do f(t[i], i, ...) end end -- all 3 are value-first, key 2nd
-local  _reach = function (t, f, ...) for i = #t,  1, -1    do f(t[i], i, ...) end end 
+local   _each = function (t, f, ...) for i, v in ipairs(t) do f(v,    i, ...) end end -- all 3 are value-first, key 2nd
 local  _every = function (t, f, ...) for k, v in  pairs(t) do f(v,    k, ...) end end 
+local  _reach = function (t, f, ...) for i = #t,  1, -1    do f(t[i], i, ...) end end 
+
+local itergen =
+	function (iter)
+		return
+			function (t, ...)
+				if ... then
+					iter(t, ...)
+
+					return t
+				end
+
+				return cwrap(iter), t, cyield
+			end
+	end
 
 -- these public-facing functions either generate an iterator or iterate if a function and args are passed
-each  = function (t, ...) if ... ~= nil then  _each(t, ...) return t end return cwrap( _each), t, cyield end
-reach = function (t, ...) if ... ~= nil then _reach(t, ...) return t end return cwrap(_reach), t, cyield end
-every = function (t, ...) if ... ~= nil then _every(t, ...) return t end return cwrap(_every), t, cyield end
+each  = itergen( _each)
+reach = itergen(_reach)
+every = itergen(_every)
 
--- make pairs/ipairs generators also act as directly started iterators if a function and args are passed
-do
-	local orig_pairs  = pairs
-	local orig_ipairs = ipairs
+-- strictly for k, v-returning generators
+local geniter =
+	function (gen)
+		return
+			function (t, f, ...)
+				if f then
+					for k, v in gen(t) do
+						f(k, v, ...)
+					end
 
-	pairs  = function (t, f, ...) if f ~= nil then for k, v in orig_pairs(t)  do f(k, v, ...) end return t end return orig_pairs(t)  end
-	ipairs = function (t, f, ...) if f ~= nil then for k, v in orig_ipairs(t) do f(k, v, ...) end return t end return orig_ipairs(t) end
-end
+					return t
+				end
+
+				return gen(t)
+			end
+	end
+
+-- make ipairs/pairs also act as iterators
+ipairs = geniter(ipairs)
+pairs  = geniter( pairs)
 
 --------------------------
 --       examples       --
