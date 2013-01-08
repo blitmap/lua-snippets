@@ -1,7 +1,16 @@
 #!/usr/bin/env lua
 
+local srep   = string.rep
+
 local cwrap  = coroutine.wrap
 local cyield = coroutine.yield
+
+local println =
+	function (...)
+		for i = 1, select('#', ...) do
+			io.output():write(select(i, ...), '\r\n')
+		end
+	end
 
 -- iterators
 local   _each = function (t, f, ...) for i =  1, #t        do f(t[i], i, ...) end end -- all 3 are value-first, key 2nd
@@ -27,6 +36,7 @@ end
 --------------------------
 
 local tmp = { 'a', 'b', 'c', 'd', 'e', 'f', 'g' }
+local sep = srep('-', 70)
 
 --------------------------
 --    iterator calls    --
@@ -35,9 +45,12 @@ local tmp = { 'a', 'b', 'c', 'd', 'e', 'f', 'g' }
 for _, v in ipairs({ 'each', 'reach', 'every', 'ipairs', 'pairs' }) do
 	local iter = _G[v]
 
-	print(('-'):rep(70))
-	print(('%s(tmp, print) -- iterator call'):format(v))
-	print(('-'):rep(70))
+	println
+	(
+		sep,
+		('%s(tmp, print) -- iterator call'):format(v),
+		sep
+	)
 
 	-- Special note: The iterator form returns its `self'. assert(tmp == ...)
 	assert(tmp == iter(tmp, print))
@@ -50,9 +63,12 @@ end
 for _, v in ipairs({ 'each', 'reach', 'every', 'ipairs', 'pairs' }) do
 	local gener = _G[v]
 
-	print(('-'):rep(70))
-	print(('for x, y in %s(tmp) do print(x, y) end -- generator call'):format(v))
-	print(('-'):rep(70))
+	println
+	(
+		sep,
+		('for x, y in %s(tmp) do print(x, y) end -- generator call'):format(v),
+		sep
+	)
 
 	for x, y in gener(tmp) do
 		print(x, y)
