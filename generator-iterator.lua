@@ -47,27 +47,14 @@ end
 --    generator calls   --
 --------------------------
 
-for _, v in ipairs({ 'each', 'reach', 'every' }) do
+for _, v in ipairs({ 'each', 'reach', 'every', 'ipairs', 'pairs' }) do
 	local gener = _G[v]
 
 	print(('-'):rep(70))
-	print(('for v, i in %s(tmp) do print(v, i) end -- generator call'):format(v))
+	print(('for x, y in %s(tmp) do print(x, y) end -- generator call'):format(v))
 	print(('-'):rep(70))
 
-	for v, i in gener(tmp) do
-		print(v, i)
+	for x, y in gener(tmp) do
+		print(x, y)
 	end
 end
-	
-for _, v in ipairs({ 'pairs', 'ipairs' }) do
-	local gener = _G[v]
-
-	print(('-'):rep(70))
-	print(('for i, v in %s(tmp) do print(i, v) end -- generator call'):format(v))
-	print(('-'):rep(70))
-
-	for i, v in gener(tmp) do
-		print(i, v)
-	end
-end
-
