@@ -262,7 +262,7 @@ while true do
 
 			if not ok then
 				log(err)
-				c:send('Content-Type: text/html\r\nStatus: 500\r\n\r\n' .. err)
+				pcall(function () c:send('Content-Type: text/html\r\nStatus: 500\r\n\r\n' .. err) end )
 
 				if s == serv then
 					break
