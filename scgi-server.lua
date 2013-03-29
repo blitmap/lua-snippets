@@ -41,6 +41,7 @@ local ccreate = coroutine.create
 local cresume = coroutine.resume
 local cyield  = coroutine.yield
 
+local tcat = table.concat
 local tins = table.insert
 local trem = table.remove
 
@@ -185,12 +186,12 @@ local croutine =
 		scgi.headers = headers
 		scgi.body    = body
 
-		local response = ''
+		local response = {}
 
 		print =
 			function (...)
 				for i = 1, select('#', ...) do
-					response = response .. tostring(select(i, ...))
+					tins(response, tostring(select(i, ...)))
 				end
 			end
 
@@ -198,6 +199,9 @@ local croutine =
 		cached.bytecode()
 
 		cyield()
+
+		-- bring it all together
+		response = tcat(response)
 
 		local i   = 1
 		local len = #response
