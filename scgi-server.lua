@@ -182,21 +182,29 @@ local croutine =
 		cyield() -- take a break
 
 		scgi.current = cached
-		scgi.request = request
+		scgi.request = netstring
 		scgi.headers = headers
 		scgi.body    = body
 
 		local response = {}
 
-		print =
+		local tmp = coroutine.wrap(cached.bytecode)
+
+		local collect =
 			function (...)
+				if not ... then
+					return
+				end
+
 				for i = 1, select('#', ...) do
 					tins(response, tostring(select(i, ...)))
 				end
+
+				return true
 			end
 
 		-- FINALLY RUNNING IT
-		cached.bytecode()
+		while collect(tmp()) do end
 
 		cyield()
 
