@@ -5,9 +5,7 @@ require('helpers')
 
 local tkeys = table.keys
 
-module('spairs')
-
-iter =
+local iter =
     function (tbl, sort_func)
 		local keys = tkeys(tbl)
         
@@ -26,7 +24,7 @@ iter =
         return spairs_iterator
     end 
 
-return setmetatable(_M, { __call = function (_, ...) return iter(...) end })
+return iter
 
 --[[
 
