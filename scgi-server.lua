@@ -2,15 +2,25 @@
 
 	Implementaton Notes:
 
-	-- header.REQUEST_URI or header.SCRIPT_FILENAME etc aren't validated to be within
-	-- the DOCUMENT_ROOT, we make nginx check this for us with try_files $uri = 404;
+	header.REQUEST_URI or header.SCRIPT_FILENAME etc aren't validated to be within
+	the DOCUMENT_ROOT, we make nginx check this for us with try_files $uri = 404;
 
-	-- validate_headers() is largely unnecessary since nginx also will send the
-	-- correct headers as per the SCGI spec every time
+	validate_headers() is largely unnecessary since nginx also will send the
+	correct headers as per the SCGI spec every time
 
-	-- The only real checking we do is make sure that no duplicate headers are sent,
-	-- in that: We can either error or only accept the first value defined per the
-	-- duplicate header. (like the first CONTENT_LENGTH value)
+	The only real checking we do is make sure that no duplicate headers are sent,
+	in that: We can either error or only accept the first value defined per the
+	duplicate header. (like the first CONTENT_LENGTH value)
+
+	THIS SCGI SERVER WILL READ THE ENTIRE REQUEST BODY,
+	it can be DoS'd if you do not limit this in your webserver:
+
+	Example for nginx (in http section):
+
+	client_body_buffer_size     16k;
+	client_header_buffer_size   1k; 
+	client_max_body_size        1m; 
+	large_client_header_buffers 4 8k; 
 
 ]]
 
