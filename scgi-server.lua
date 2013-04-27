@@ -251,7 +251,7 @@ local sroutine =
 
 			assert(c:settimeout(0))
 
-			threads[c] = assert(ccreate(croutine))
+			threads[c] = ccreate(croutine)
 
 			tins(r, c) -- insert the new client in the read set
 
