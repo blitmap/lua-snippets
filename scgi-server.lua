@@ -23,35 +23,56 @@ package.cpath =
 	package.cpath ..
 	';/usr/lib/lua/?.so;'
 
-local posix    = require('posix')
+local posix  = require('posix')
+local socket = require('socket')
 
-local socket   = require('socket')
-local sselect  = socket.select
+-- {{{ some helpers
 
-local ssub     = string.sub
-local sgsub    = string.gsub
-local sfind    = string.find
-local sgmatch  = string.gmatch
-local smatch   = string.match
-local sformat  = string.format
-local dtrace   = debug.traceback
+table.shift =
+	function (self)
+		return table.remove(self, 1)
+	end
 
-local cstatus = coroutine.status
-local ccreate = coroutine.create
-local cresume = coroutine.resume
-local cyield  = coroutine.yield
+table.pusht =
+	function (self, t2)
+		local n = #self
 
-local tcat = table.concat
-local tins = table.insert
-local trem = table.remove
+		for _, v in ipairs(t2) do
+			n = n + 1
+			self[n] = v
+		end
 
-local log = print
+		return self
+	end
+
+table.map =
+	function (self, f, ...)
+		for k, v in pairs(self) do
+			f(v, k, self, ...)
+		end
+	end
+
+local empty  =
+	function (self)
+		return next(self) == nil
+	end
+
+local indexOf =
+	function (t, v, gen)
+		for idx, val in (gen or pairs)(t) do
+			if val == v then
+				return idx
+			end
+		end
+	end
+
+-- }}}
 
 local host = 'localhost'
 local port = 8888
 
-local r, w = {}, {}
-
+local r       = {} -- the read "set"
+local w       = {} -- the write "set"
 local threads = setmetatable({}, { __mode = 'k' }) -- threads vanish as sockets "drop out"
 
 -- ['/script/path/from/document/root.lua'] = { attrs = lfs.attributes(...), source = ..., bytecode = ... }
@@ -62,7 +83,7 @@ scgi = { cache = cache, conns = 0, failed = 0, succeeded = 0 }
 local validate_scgi =
 	function (headers)
 		if headers[1] ~= 'CONTENT_LENGTH' then
-			error('SCGI requires CONTENT_LENGTH be the first header')
+			error('SCGI spec mandates CONTENT_LENGTH be the first header')
 		end
 
 		if headers.CONTENT_LENGTH == '' then
@@ -70,17 +91,18 @@ local validate_scgi =
 		end
 
 		if headers.SCGI ~= '1' then
-			error('"SCGI\\01\\0" must be present in the SCGI request head')
+			error('request from webserver must have "SCGI" header with value of "1"')
 		end
 
-		if not not tonumber(headers.CONTENT_LENTH) then
+		-- enforce base 10, we should never have CONTENT_LENGTH: 0xFF (lol)
+		if not tonumber(headers.CONTENT_LENGTH, 10) then
 			error('CONTENT_LENGTH\'s value is not a number')
 		end
 	end
 
 local recvall =
 	function (c)
-		local tmp = nil
+		local tmp = {}
 
 		while true do
 			local err, partial = select(2, c:receive('*a'))
@@ -95,55 +117,47 @@ local recvall =
 				break
 			end
 
-			tmp = tmp ~= nil and (tmp .. partial) or partial
+			table.insert(tmp, partial)
 		end
 
-		return tmp
+		return table.concat(tmp)
 	end
 
-local indexOf =
-	function (t, v, gen)
-		for idx, val in (gen or pairs)(t) do
-			if val == v then
-				return idx
-			end
-		end
-	end
 
 local croutine =
 	function (c)
 		local netstring = recvall(c) or error('connection established but nothing received')
 
-		trem(r, indexOf(r, c)) -- we don't immediately need write so I'm a bit unhappy about this
-		tins(w, c)
-		cyield()
+		table.remove(r, indexOf(r, c)) -- we don't immediately need write so I'm a bit unhappy about this
+		table.insert(w, c)
+		coroutine.yield()
 
-		local netsize, scgistart = smatch(netstring, '^(%d+):()')
+		local netsize, scgistart = string.match(netstring, '^(%d+):()')
 
 		if not netsize then
 			error('netstring size not found in SCGI request')
 		end
 
-		local head = ssub(netstring, scgistart, scgistart + netsize)
+		local head = string.sub(netstring, scgistart, scgistart + netsize)
 
 		local headers = {}
 
-		for k, v in sgmatch(head, '(%Z+)%z(%Z*)%z') do
+		for k, v in string.gmatch(head, '(%Z+)%z(%Z*)%z') do
 			if headers[k] then
 				error('duplicate SCGI header encountered')
 			end
 
-			tins(headers, k) -- track ordering
+			table.insert(headers, k) -- track ordering
 			headers[k] = v
 		end
 
-		cyield() -- we've been at this long enough
+		coroutine.yield() -- we've been at this long enough
 
 		validate_scgi(headers)
 
 		headers[0] = head
 
-		local body = ssub(netstring, scgistart + netsize + 1, headers.CONTENT_LENGTH) -- 1 for ';' at the end of the header section
+		local body = string.sub(netstring, scgistart + netsize + 1, headers.CONTENT_LENGTH) -- 1 for ';' at the end of the header section
 
 		local path     = headers.PATH_TRANSLATED
 		local attrs    = posix.stat(path)
@@ -168,8 +182,8 @@ local croutine =
 
 			assert(tmp:close())
 
-			if ssub(source, 1, 2) == '#!' then
-				source = ssub(source, (sfind(source, '\n', 1, true)))
+			if string.sub(source, 1, 2) == '#!' then
+				source = string.sub(source, (string.find(source, '\n', 1, true)))
 			end
 
 			local bytecode = assert(loadstring(source, path))
@@ -179,7 +193,7 @@ local croutine =
 			cache[path] = cached
 		end
 
-		cyield() -- take a break
+		coroutine.yield() -- take a break
 
 		scgi.self    = cached
 		scgi.request = netstring
@@ -190,53 +204,28 @@ local croutine =
 
 		local tmp = coroutine.create(cached.bytecode)
 
-		local collect =
-			function (...)
-				if not ... then
-					return ...
-				end
+		while true do
+			local stat = { coroutine.resume(tmp) }
+			local ok   = table.shift(stat)
 
-				for i = 2, select('#', ...) do
-					tins(response, tostring(select(i, ...)))
-				end
-
-				return true
+			if not ok then
+				error(stat[1])
 			end
 
-		-- FINALLY RUNNING IT
-		while true do
-			local ok, err = collect(cresume(tmp))
+			table.pusht(response, stat)
 
-			if not ok and err then
-				if err then
-					error(err)
-				end
-
+			if coroutine.status(tmp) == 'dead' then
 				break
 			end
 		end
-		
---[[
-		while true do
-			local stat = { cresume(tmp) }
-			local ok   = trem(stat, 1)
 
-			if stat[1] then
-				for i = 2, #stat do
-					local v = stat[i]
-					tins(response, tostring(v))
-				end
-			else
-				if 
-]]
-
-		cyield()
+		coroutine.yield()
 
 		-- bring it all together
-		response = tcat(response)
+		response = table.concat(response)
 
 		if response == '' then
-			response = 'Content-Type: text/plain\r\nStatus: 444 No Response\r\n\r\nThe SCGI script did not output anything'
+			response = 'Content-Type: text/plain\r\nStatus: 204 No Content\r\n\r\nSCGI request successful; no output'
 		end
 
 		local i   = 1
@@ -251,14 +240,11 @@ local croutine =
 
 			i = sent + 1
 
-			cyield()
+			coroutine.yield()
 		end
 
 		assert(c:shutdown())
-		trem(w, indexOf(w, c))
-
-		scgi.conns     = scgi.conns     + 1
-		scgi.succeeded = scgi.succeeded + 1
+		table.remove(w, indexOf(w, c))
 	end
 
 local sroutine =
@@ -268,11 +254,11 @@ local sroutine =
 
 			assert(c:settimeout(0))
 
-			threads[c] = assert(ccreate(croutine))
+			threads[c] = assert(coroutine.create(croutine))
 
-			tins(r, c) -- insert the new client in the read set
+			table.insert(r, c) -- insert the new client in the read set
 
-			cyield()
+			coroutine.yield()
 		end
 	end
 
@@ -286,20 +272,22 @@ print(('Listening on %s:%s ...'):format(serv:getsockname()))
 
 assert(serv:settimeout(0)) -- so we can non-blockingly :accept()
 
-threads[serv] = assert(ccreate(sroutine))
+threads[serv] = assert(coroutine.create(sroutine))
 
-tins(r, serv)
+table.insert(r, serv)
 
 while true do
-	local read, write = sselect(r, w)
+	local read, write = socket.select(r, w)
 
 	for _, set in ipairs({ read, write }) do
 		for _, s in ipairs(set) do
-			local ok, err = cresume(threads[s], s)
+			local ok, err = coroutine.resume(threads[s], s)
 
-			if not ok then
-				log(err)
-				pcall(function () s:send('Content-Type: text/plain\r\nStatus: 200 OK\r\n\r\n' .. err) end)
+			if ok then
+				scgi.succeeded = scgi.succeeded + 1
+			else
+				print(err)
+				pcall(function () s:send('Content-Type: text/plain\r\nStatus: 500 Internal Server Error\r\n\r\n' .. err) end)
 
 				if s == serv then
 					serv:shutdown()
@@ -310,14 +298,14 @@ while true do
 					local idx = indexOf(set, s)
 
 					if idx then
-						trem(set, idx)
+						table.remove(set, idx)
 					end
 				end
 
 				ok, err = pcall(function () s:close() end)
 
 				if not ok then
-					log(err)
+					print(err)
 				end
 
 				scgi.failed = scgi.failed + 1
