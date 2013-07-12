@@ -2,25 +2,15 @@
 
 	Implementaton Notes:
 
-	header.REQUEST_URI or header.SCRIPT_FILENAME etc aren't validated to be within
-	the DOCUMENT_ROOT, we make nginx check this for us with try_files $uri = 404;
+	-- header.REQUEST_URI or header.SCRIPT_FILENAME etc aren't validated to be within
+	-- the DOCUMENT_ROOT, we make nginx check this for us with try_files $uri = 404;
 
-	validate_headers() is largely unnecessary since nginx also will send the
-	correct headers as per the SCGI spec every time
+	-- validate_headers() is largely unnecessary since nginx also will send the
+	-- correct headers as per the SCGI spec every time
 
-	The only real checking we do is make sure that no duplicate headers are sent,
-	in that: We can either error or only accept the first value defined per the
-	duplicate header. (like the first CONTENT_LENGTH value)
-
-	THIS SCGI SERVER WILL READ THE ENTIRE REQUEST BODY,
-	it can be DoS'd if you do not limit this in your webserver:
-
-	Example for nginx (in http section):
-
-	client_body_buffer_size     16k;
-	client_header_buffer_size   1k; 
-	client_max_body_size        1m; 
-	large_client_header_buffers 4 8k; 
+	-- The only real checking we do is make sure that no duplicate headers are sent,
+	-- in that: We can either error or only accept the first value defined per the
+	-- duplicate header. (like the first CONTENT_LENGTH value)
 
 ]]
 
@@ -191,22 +181,22 @@ local croutine =
 
 		cyield() -- take a break
 
-		scgi.current = cached
+		scgi.self    = cached
 		scgi.request = netstring
 		scgi.headers = headers
 		scgi.body    = body
 
 		local response = {}
 
-		local tmp = coroutine.wrap(cached.bytecode)
+		local tmp = coroutine.create(cached.bytecode)
 
 		local collect =
 			function (...)
 				if not ... then
-					return
+					return ...
 				end
 
-				for i = 1, select('#', ...) do
+				for i = 2, select('#', ...) do
 					tins(response, tostring(select(i, ...)))
 				end
 
@@ -214,12 +204,40 @@ local croutine =
 			end
 
 		-- FINALLY RUNNING IT
-		while collect(tmp()) do end
+		while true do
+			local ok, err = collect(cresume(tmp))
+
+			if not ok and err then
+				if err then
+					error(err)
+				end
+
+				break
+			end
+		end
+		
+--[[
+		while true do
+			local stat = { cresume(tmp) }
+			local ok   = trem(stat, 1)
+
+			if stat[1] then
+				for i = 2, #stat do
+					local v = stat[i]
+					tins(response, tostring(v))
+				end
+			else
+				if 
+]]
 
 		cyield()
 
 		-- bring it all together
 		response = tcat(response)
+
+		if response == '' then
+			response = 'Content-Type: text/plain\r\nStatus: 444 No Response\r\n\r\nThe SCGI script did not output anything'
+		end
 
 		local i   = 1
 		local len = #response
@@ -236,9 +254,8 @@ local croutine =
 			cyield()
 		end
 
-		trem(w, indexOf(w, c))
-
 		assert(c:shutdown())
+		trem(w, indexOf(w, c))
 
 		scgi.conns     = scgi.conns     + 1
 		scgi.succeeded = scgi.succeeded + 1
@@ -251,7 +268,7 @@ local sroutine =
 
 			assert(c:settimeout(0))
 
-			threads[c] = ccreate(croutine)
+			threads[c] = assert(ccreate(croutine))
 
 			tins(r, c) -- insert the new client in the read set
 
@@ -273,8 +290,6 @@ threads[serv] = assert(ccreate(sroutine))
 
 tins(r, serv)
 
-local x = 0
-
 while true do
 	local read, write = sselect(r, w)
 
@@ -284,11 +299,11 @@ while true do
 
 			if not ok then
 				log(err)
-				pcall(function () c:send('Content-Type: text/html\r\nStatus: 500\r\n\r\n' .. err) end )
+				pcall(function () s:send('Content-Type: text/plain\r\nStatus: 200 OK\r\n\r\n' .. err) end)
 
 				if s == serv then
-					break
-					break
+					serv:shutdown()
+					os.exit(false)
 				end
 
 				for _, set in pairs({ r, w }) do -- it may be in either of these
@@ -306,10 +321,9 @@ while true do
 				end
 
 				scgi.failed = scgi.failed + 1
-				scgi.conns  = scgi.conns  + 1
 			end
+
+			scgi.conns = scgi.conns + 1
 		end
 	end
 end
-
-serv:shutdown()
