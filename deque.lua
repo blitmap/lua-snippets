@@ -102,6 +102,22 @@ deque.insert =
 		end
 	end
 
+deque.erase =
+	function (self, ...)
+		local i, n = ...
+
+		if select('#', ...) == 1 then
+			n = 1
+		end
+
+		self._back = self._back - n
+
+		for x = self._front + i - 1, self._back do
+			self._items[x    ] = self._items[x + n]
+			self._items[x + n] = nil -- GC teim! \o/
+		end
+	end
+
 deque.length = function (self)    return self._back - self._front + 1     end
 deque.front  = function (self)    return self._items[self._front        ] end
 deque.back   = function (self)    return self._items[self._back         ] end
