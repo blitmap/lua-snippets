@@ -129,4 +129,34 @@ deque.__call  = construct    -- local d = deque('a', 'b', 'c')
 deque.__index = deque        -- d:empty() -> false
 deque.__len   = deque.length -- #d -> 3
 
+deque.__pairs =
+	function (self)
+		local k, v
+
+		return
+			function ()
+				k, v = next(self._items, k)
+
+				if k ~= nil then
+					return k - self._front + 1, v
+				end
+			end
+	end
+
+deque.__ipairs =
+	function (self)
+		local i = self._front - 1
+
+		return
+			function ()
+				i = i + 1
+
+				local v = self._items[i]
+
+				if v ~= nil then
+					return i, v
+				end
+			end
+	end
+
 return setmetatable(deque, deque)
