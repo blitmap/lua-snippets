@@ -1,16 +1,14 @@
 local deque = {}
 
-deque.new =
-	function (...)
+local construct =
+	function (_, ...)
 		local o = {}
 
+		-- piggyback this to 'init' our deque
 		deque.clear(o)
 
-		-- insert anything passed to the constructor
-		for i = ... == deque and 2 or 1, select('#', ...) do
-			local v = select(i, ...)
-
-			deque.insert(o, v)
+		for _, v in ipairs({ ... }) do
+			deque.push_back(o, v)
 		end
 
 		return setmetatable(o, deque)
@@ -76,6 +74,7 @@ deque.clear =
 		self._items = {}
 	end
 
+-- not sure anybody will use this...
 deque.swap =
 	function (self, other)
 		-- swappy swappy!
@@ -84,6 +83,7 @@ deque.swap =
 		self._items, other._items = other._items, self._items
 	end
 
+-- expensive: avoid inserting things in the middle of queues
 deque.insert =
 	function (self, ...)
 		if select('#', ...) == 1 then
@@ -102,6 +102,7 @@ deque.insert =
 		end
 	end
 
+-- expensive: avoid deleting things in the middle of queues
 deque.erase =
 	function (self, ...)
 		local i, n = ...
@@ -124,7 +125,8 @@ deque.back   = function (self)    return self._items[self._back         ] end
 deque.at     = function (self, i) return self._items[self._front + i - 1] end
 
 -- metamethods
-deque.__call  = deque.new -- local d = deque()
-deque.__index = deque     -- d:length() -> 0
+deque.__call  = construct    -- local d = deque('a', 'b', 'c')
+deque.__index = deque        -- d:empty() -> false
+deque.__len   = deque.length -- #d -> 3
 
 return setmetatable(deque, deque)
