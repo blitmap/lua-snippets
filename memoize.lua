@@ -1,14 +1,18 @@
-local guids   = setmetatable({}, { __mode = 'k' })
-local counter = 0 -- note: this could eventually overflow...
+-- a table to track all objects passed to any memoized functions
+local guids = setmetatable({}, { __mode = 'k' })
 
--- the functions are the weak-keys
+-- note: this could *eventually* overflow -- unlikely for practical use
+local counter = 0
+
+-- the memoized functions are the weak-keys
 local funcs = setmetatable({}, { __mode = 'k' })
 
--- (1, nil, 'cat', '', function() end) -> '3||7|38|27'
-local call_to_str =
+-- example: (1, nil, 'cat', '', function() end) -> '3||7|38|27'
+local args_to_str =
 	function (...)
-		local uids = {}
+		local ids = {}
 
+		-- use of select() is important here
 		for i = 1, select('#', ...) do
 			local v = select(i, ...)
 
@@ -17,41 +21,32 @@ local call_to_str =
 				guids[v] = counter
 			end
 
-			v = guids[v] or ''
-
-			uids[i] = v
+			-- nil becomes empty-string
+			ids[i] = guids[v] or ''
 		end
 
-		return table.concat(uids, '|')
+		-- the separator is important, but can be anything
+		return table.concat(ids, '|')
 	end
 
 local call =
 	function (f, ...)
-		if not funcs[f] then
-			-- weakly-link keys, as the keys are the objects we track
-			funcs[f] = {}
-		end
+		if not funcs[f] then funcs[f] = {} end
 
-		local call = call_to_str(...)
+		local call    = args_to_str(...)
+		local returns = funcs[f]
 
-		if not funcs[f][call] then
-			-- table.pack() is magic
-			-- constructs a table that preserves nil in the sequence
+		if not returns[call] then
 			funcs[f][call] = table.pack(f(...))
-			print('-- called: ' .. tostring(f))
+			print(('call signature: %q \t calling: %s'):format(call, f))
 		else
-			print('-- not called: ' .. tostring(f))
+			print(('call signature: %q \t not calling: %s'):format(call, f))
 		end
 
 		return table.unpack(funcs[f][call])
 	end
 
-local memoize =
-	function (f)
-		return function (...) return call(f, ...) end
-	end
-
-local unmemoize =
+local clear =
 	function (f)
 		-- no function specified, reset memoize module (essentially)
 		if not f then
@@ -64,4 +59,4 @@ local unmemoize =
 		end
 	end
 
-return { call = call, func = memoize, drop_cache = unmemoize }
+return setmetatable({ call = call, forget = clear }, { __call = function (_, ...) return call(...) end })
