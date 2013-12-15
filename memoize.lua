@@ -1,18 +1,23 @@
--- a table to track all objects passed to any memoized functions
-local guids = setmetatable({}, { __mode = 'k' })
+local counter, guids, funcs
 
--- note: this could *eventually* overflow -- unlikely for practical use
-local counter = 0
+local init =
+	function ()
+		counter = 0
+		funcs   = nil
+		guids   = setmetatable({}, { __mode = 'k' })
+	end
 
--- the memoized functions are the weak-keys
-local funcs = setmetatable({}, { __mode = 'k' })
+init()
 
+local memoize = {}
+
+-- turns a call into a list of object ids (NOT SERIALIZING)
 -- example: (1, nil, 'cat', '', function() end) -> '3||7|38|27'
 local args_to_str =
 	function (...)
 		local ids = {}
 
-		-- use of select() is important here
+		-- select() is important here
 		for i = 1, select('#', ...) do
 			local v = select(i, ...)
 
@@ -21,16 +26,17 @@ local args_to_str =
 				guids[v] = counter
 			end
 
-			-- nil becomes empty-string
+			-- nil is tracked as a vacancy between ||
 			ids[i] = guids[v] or ''
 		end
 
-		-- the separator is important, but can be anything
+		-- the separator is important, should be a non-number
 		return table.concat(ids, '|')
 	end
 
-local call =
+memoize.call =
 	function (f, ...)
+		if not funcs    then funcs = setmetatable({}, { __mode = 'k' }) end
 		if not funcs[f] then funcs[f] = {} end
 
 		local call    = args_to_str(...)
@@ -46,17 +52,23 @@ local call =
 		return table.unpack(funcs[f][call])
 	end
 
-local clear =
+memoize.forget_call =
+	function (f, ...)
+		if not funcs[f] then return end
+
+		-- forget this specific call
+		funcs[f][args_to_str(...)] = nil
+	end
+
+memoize.forget =
 	function (f)
-		-- no function specified, reset memoize module (essentially)
-		if not f then
-			-- replace/clear guid table, guid counter, drop function call caches
-			guids   = setmetatable({}, { __mode = 'k' })
-			counter = 0
-			funcs   = {}
-		else
+		if f then
 			funcs[f] = nil
+		else
+			init()
 		end
 	end
 
-return setmetatable({ call = call, forget = clear }, { __call = function (_, ...) return call(...) end })
+memoize.forget_everything = init
+
+return setmetatable(memoize, { __call = function (_, ...) return memoize.call(...) end })
