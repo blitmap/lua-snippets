@@ -1,5 +1,10 @@
 #!/usr/bin/env lua
 
+-- table.import(_ENV, string)
+-- table.import(_ENV, string, 's')
+-- table.import(_ENV, string, { 'reverse', 'byte' })
+-- table.import(_ENV, string, 's', { 'reverse', 'byte' })
+
 local is_empty =
 	function (self)
 		return not next(self)
@@ -7,7 +12,7 @@ local is_empty =
 
 table.import =
 	function (self, from, pref, keys)
-		if type(keys) == 'string' then
+		if type(pref) == 'table' then
 			pref, keys = keys, pref
 		end
 
@@ -28,21 +33,11 @@ table.import =
 		return self
 	end
 
-assert(string.reverse == table.import({}, string     ).reverse )
-assert(string.reverse == table.import({}, string, 's').sreverse)
-
-local f =
-	function ()
-		table.import(_ENV, io)
-		table.import(_ENV, io, 'io_')
-
-		write('hello thar!\r\n')
-		io_write('blah. ~\r\n')
-	end
-
-f()
+assert(string.reverse == table.import({}, string     ).reverse                )
+assert(string.reverse == table.import({}, string, 's').sreverse               )
+assert(nil            == table.import({}, string, { 'reverse' }).byte         )
+assert(string.reverse == table.import({}, string, 's', { 'reverse' }).sreverse)
 
 table.import(_ENV, string, 's', { 'reverse', 'rep', 'sub' })
 
 print(sreverse('cat'), srep('donut', 5), ssub('abcdefg', 3, 6))
-
